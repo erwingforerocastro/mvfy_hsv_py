@@ -1,7 +1,6 @@
 import time
 import cv2
 import asyncio
-import json
 import base64
 from flask_socketio import SocketIO, emit
 from flask import Flask, render_template
@@ -15,7 +14,7 @@ class Streamer():
 
     def __init__(self, url_server: str, url_client: str, ip_cam: str,  *args, **kargs) -> None:
         """Constructor
-        WARNING: this feature is be beta 
+        WARNING: this feature is still in alpha phase
         
         Args:
             url_server (str): [description]
