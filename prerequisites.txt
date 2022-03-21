@@ -1,0 +1,2 @@
+https://cmake.org/install/
+https://github.com/ageitgey/face_recognition

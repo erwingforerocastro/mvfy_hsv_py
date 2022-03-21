@@ -1,0 +1,62 @@
+Requests are passed as a list of write operation instances (
+        :class:`~pymongo.operations.InsertOne`,
+        :class:`~pymongo.operations.UpdateOne`,
+        :class:`~pymongo.operations.UpdateMany`,
+        :class:`~pymongo.operations.ReplaceOne`,
+        :class:`~pymongo.operations.DeleteOne`, or
+        :class:`~pymongo.operations.DeleteMany`).
+
+          >>> for doc in db.test.find({}):
+          ...     print(doc)
+          ...
+          {'x': 1, '_id': ObjectId('54f62e60fba5226811f634ef')}
+          {'x': 1, '_id': ObjectId('54f62e60fba5226811f634f0')}
+          >>> # DeleteMany, UpdateOne, and UpdateMany are also available.
+          ...
+          >>> from pymongo import InsertOne, DeleteOne, ReplaceOne
+          >>> requests = [InsertOne({'y': 1}), DeleteOne({'x': 1}),
+          ...             ReplaceOne({'w': 1}, {'z': 1}, upsert=True)]
+          >>> result = db.test.bulk_write(requests)
+          >>> result.inserted_count
+          1
+          >>> result.deleted_count
+          1
+          >>> result.modified_count
+          0
+          >>> result.upserted_ids
+          {2: ObjectId('54f62ee28891e756a6e1abd5')}
+          >>> for doc in db.test.find({}):
+          ...     print(doc)
+          ...
+          {'x': 1, '_id': ObjectId('54f62e60fba5226811f634f0')}
+          {'y': 1, '_id': ObjectId('54f62ee2fba5226811f634f1')}
+          {'z': 1, '_id': ObjectId('54f62ee28891e756a6e1abd5')}
+
+        :Parameters:
+          - `requests`: A list of write operations (see examples above).
+          - `ordered` (optional): If ``True`` (the default) requests will be
+            performed on the server serially, in the order provided. If an error
+            occurs all remaining operations are aborted. If ``False`` requests
+            will be performed on the server in arbitrary order, possibly in
+            parallel, and all operations will be attempted.
+          - `bypass_document_validation`: (optional) If ``True``, allows the
+            write to opt-out of document level validation. Default is
+            ``False``.
+          - `session` (optional): a
+            :class:`~pymongo.client_session.ClientSession`.
+
+        :Returns:
+          An instance of :class:`~pymongo.results.BulkWriteResult`.
+
+        .. seealso:: :ref:`writes-and-ids`
+
+        .. note:: `bypass_document_validation` requires server version
+          **>= 3.2**
+
+        .. versionchanged:: 3.6
+           Added ``session`` parameter.
+
+        .. versionchanged:: 3.2
+          Added bypass_document_validation support
+
+        .. versionadded:: 3.0

@@ -1,5 +1,3 @@
-import time
-import cv2
 import asyncio
 import base64
 from flask_socketio import SocketIO, emit
@@ -12,30 +10,28 @@ SIZE = (1920, 1080)
 
 class Streamer():
 
-    def __init__(self, url_server: str, url_client: str, ip_cam: str,  *args, **kargs) -> None:
+    def __init__(self, 
+        url_server: str, 
+        ip_cam: str,  
+        app: 'Flask' = None,
+        socket_options: 'dict' = None,
+        title: str = "window",
+        *args, **kargs) -> None:
         """Constructor
-        WARNING: this feature is still in alpha phase
+        
         
         Args:
             url_server (str): [description]
-            url_client (str): [description]
             ip_cam (str): [description]
         """
-        self.app = Flask(__name__)
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
-        self.title = "title"
-        self.url_client = url_client
+        self.app = Flask(__name__) if app is None else app
+        self.socketio = SocketIO(self.app, **socket_options) 
+        self.title = title
         self.url_server = url_server
-        self.ip_cam = ip_cam
-        self.stream = None
-        self.server = None
         self.state = 0  # conection, 0 disconnect, 1 conected, 2 wait connection
-        self.image = None
-        self._img_capture = None
         self._temp_url = None
         self.app.config['SECRET_KEY'] = 'secret'
         self.socketio.on('connect')(
-            # lambda: print("new connection!")
             self.ws
         )
         # self.socketio.on('rcv_image')(self.ws)
@@ -154,5 +150,3 @@ stream = Streamer(
     },
     ip_cam='rtsp://mvfysystem:mvfysystem@192.168.1.1:8080/h264_ulaw.sdp'
 )
-
-# server = multiprocessing.Process(target=stream.socketio.run, args=(stream.app, ))

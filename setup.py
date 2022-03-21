@@ -27,5 +27,7 @@ setup(
     author_email='erwingforerocastro@gmail.com',
     url='https://github.com/erwingforerocastro/mvfy_hsv_py',
     license=license,
-    packages=find_packages(exclude=('test','docs'))
+    classifiers=classifiers,
+    package_dir={"": "mvfy"},
+    packages=find_packages(where="mvfy", exclude=('test','docs'))
 )
