@@ -42,7 +42,6 @@ class Detector:
 
         return more_similar, less_similar
     
-    async display_
 class FaceRecognition(Detector):
     pass
     

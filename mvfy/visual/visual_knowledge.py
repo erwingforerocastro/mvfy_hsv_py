@@ -75,4 +75,5 @@ class VisualKnowledge:
 
     async def start(self) -> None:
         
-        img = self.receiver()
+        while True:
+            img = self.receiver()
