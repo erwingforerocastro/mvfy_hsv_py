@@ -1,5 +1,9 @@
 import asyncio
 import base64
+import threading
+import cv2
+
+import numpy as np
 from flask_socketio import SocketIO, emit
 from flask import Flask, render_template
 import multiprocessing
@@ -7,52 +11,57 @@ import multiprocessing
 
 class Streamer():
 
-    def __init__(self, 
-        url_server: str, 
-        ip_cam: str,  
-        app: 'Flask' = None,
-        socket_options: 'dict' = None,
-        title: str = "window",
-        *args, **kargs) -> None:
+    def __init__(self, *args, **kargs) -> None:
         """Constructor
-        
-        
+
         Args:
             url_server (str): [description]
             ip_cam (str): [description]
         """
         pass
-
+        
     @staticmethod
     async def stream_socket(
         url_server: str, 
-        ip_cam: str,  
         app: 'Flask' = None,
         socket_options: 'dict' = None,
-        title: str = "window",
-    )-> None:
+        socket_msg: 'str' = "mvfy_visual_img",
+    )-> 'function':
 
         app = Flask(__name__) if app is None else app
         socketio = SocketIO(app, **socket_options) 
-        app.config['SECRET_KEY'] = 'secret'
-        socketio.on('connect')(
-            ws
-        )
+        threading.Thread(target=lambda: socketio.run(url_server)).run()
 
+        def wraper_function(img, extension: str = ".jpg", size: tuple = (1920, 1080)):
+        
+            if size is not None:
+                frame = cv2.resize(img, size)
+
+            _, buffer = cv2.imencode(extension, frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+            
+            data = base64.b64encode(buffer)
+
+            socketio.emit(socket_msg, {
+                "data": data
+            })
+
+        return wraper_function
 
     @staticmethod
     async def stream_local(self,
+        img: np.array,
+        size: tuple = (1920, 1080),
+
     ) -> None:
+        if self._img_capture is not None:
+            frame = cv2.resize(self._img_capture, SIZE)
+            cv2.imshow(self.title, self._img_capture)
+
+            self.update_video()
 
     def send_image(self) -> None:
         if self._img_capture is not None:
-            frame = cv2.resize(self._img_capture, SIZE)
-            encoded, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-            message = base64.b64encode(buffer)
-
-            emit('image-event', message)
-
-            self.update_video()
+            
 
     def image(data_image):
 
@@ -74,7 +83,7 @@ class Streamer():
         pass
 
     def update_video(self):
-        cv2.imshow(self.title, self._img_capture)
+        
             
 
 stream = Streamer(
