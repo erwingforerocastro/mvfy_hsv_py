@@ -1,7 +1,7 @@
 import asyncio
-from asyncio import Queue
+from asyncio import Queue, Task
 from use_cases.visual_knowledge_cases import UserUseCases
-
+from ..utils import index as utils
 
 async def loop_manager(func: function) -> 'function':
     """Decorator for Manage Event Loop.
@@ -34,20 +34,23 @@ async def async_queue_object_put(list: list[dict], keys: list[str], queue: 'Queu
 
     """
     for obj in list:
-        queue.put({
+        await queue.put({
             f"{k}":v for k, v in obj.items() if k in keys
         })
     
     queue.task_done()
 
 async def async_queue_object_get(queue: 'Queue', callback: 'function', args: tuple = ()) -> None:
+
     while not queue.empty():
         res = await queue.get()
-        await callback(*args, queue_element=res)
-        queue.task_done()
-    
+        await callback(*args, queue_result=res)
+
+    queue.task_done()
+
+
 @loop_manager
-async def load_user_descriptors(system_id: str, db: str, loop: 'asyncio.AbstractEventLoop') -> list[dict]:
+async def load_user_descriptors(system_id: str, db: str, loop: 'asyncio.AbstractEventLoop') -> Queue:
     """Load user descriptors from database.
 
     Args:
@@ -58,15 +61,17 @@ async def load_user_descriptors(system_id: str, db: str, loop: 'asyncio.Abstract
     Returns:
         list[dict]: [description]
     """
-    users_queue = Queue()
+
     use_cases = UserUseCases(db)
 
     results = await loop.run_until_complete(use_cases.get_users({
         "system_id": system_id
     }))
 
-    if results == []:
-        return result
-    await async_queue_object(results, ["detection"], users_queue)
+    if results == [] or results is None:
+        return ()
+
+    users_queue = utils.ThreadedGenerator(results, daemon=True)
+    users_queue.insert_action(cb=utils.extract_objects, args=(["detection"]))
 
     return users_queue
