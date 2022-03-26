@@ -19,7 +19,11 @@ class SystemDB(MongoDB):
         found["id"] = str(found.pop("_id"))
 
         return found
-    
+
+    def find_by_hash(self, hash: 'dict', **kargs) -> 'None|UpdateResult':
+
+        return super().find_one(self.collection, {"hash": hash}, **kargs)
+
     def insert_one(self, value: 'dict', **kargs) -> 'ObjectId':
 
         if "id" in value.values():
@@ -53,7 +57,7 @@ class UserDB(MongoDB):
         self.collection = collection
          
     def find_by_id(self, id: str) -> 'dict':
-
+        
         _id = ObjectId(id)
         found = self.find_one(self.collection,{
             "_id": _id

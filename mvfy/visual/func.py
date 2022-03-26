@@ -1,5 +1,8 @@
 import asyncio
 from asyncio import Queue, Task
+from entities.visual_knowledge_entities import System
+from data_access.visual_knowledge_db import SystemDB, UserDB
+from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
 from use_cases.visual_knowledge_cases import UserUseCases
 from ..utils import index as utils
 
@@ -50,7 +53,7 @@ async def async_queue_object_get(queue: 'Queue', callback: 'function', args: tup
 
 
 @loop_manager
-async def load_user_descriptors(system_id: str, db: str, loop: 'asyncio.AbstractEventLoop') -> Queue:
+async def load_user_descriptors(system_id: str, db: UserDB, loop: 'asyncio.AbstractEventLoop') -> 'utils.ThreadedGenerator|None':
     """Load user descriptors from database.
 
     Args:
@@ -69,9 +72,39 @@ async def load_user_descriptors(system_id: str, db: str, loop: 'asyncio.Abstract
     }))
 
     if results == [] or results is None:
-        return ()
+        return None
 
     users_queue = utils.ThreadedGenerator(results, daemon=True)
     users_queue.insert_action(cb=utils.extract_objects, args=(["detection"]))
 
     return users_queue
+
+@loop_manager
+async def get_system(system: 'dict', db: SystemDB, loop: 'asyncio.AbstractEventLoop') -> 'dict|None':
+    """Get information about a system.
+
+    Returns:
+        dict: system found
+    """
+    use_cases = SystemUseCases(db)
+    result = await loop.run_until_complete(use_cases.get_system(system))
+
+    if result == [] or result is None:
+        return None
+
+    return result
+
+@loop_manager
+async def insert_system(system: 'dict', db: SystemDB, loop: 'asyncio.AbstractEventLoop') -> 'dict|None':
+    """add information about a system.
+
+    Returns:
+        str: id of system insert
+    """
+    use_cases = SystemUseCases(db)
+    result = await loop.run_until_complete(use_cases.add_system(system))
+
+    if result == [] or result is None:
+        return None
+
+    return result

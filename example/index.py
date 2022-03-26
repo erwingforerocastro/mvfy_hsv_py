@@ -4,7 +4,7 @@ from mvfy.visual.utils import Streamer, Receiver, FaceRecognition
 if __file__ == "__main__":
 
     visual = VisualKnowledge(
-
+        
     )
 
     visual.set_conf(

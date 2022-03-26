@@ -16,11 +16,15 @@ class SystemUseCases:
         
         return result
     
-    def get_system(self, filter: 'dict') -> 'None|System':
+    def get_system(self, system: 'dict') -> 'None|System':
 
-        result = self.db.find_one(filter)
-        res_system = System(**result)
-        return res_system
+        res_system = System(**system)
+
+        if res_system.id is not None:
+            result = self.db.find_by_id(res_system.id)
+        else:
+            result = self.db.find_by_hash(res_system.hash)
+        return result
     
     def update_system(self, id: 'str', new_system: 'dict') -> 'None|Any':
 
