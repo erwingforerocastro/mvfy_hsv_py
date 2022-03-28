@@ -107,7 +107,7 @@ def extract_objects(object_list: list[dict], keys: list[str]) -> list[dict]:
         })
 
     return res
-#------------------------------------------------------------------------------- CLASES
+#------------------------------------------------------------------------------- CLASES ----------------------------------------------------------------------------------------
 
 class ThreadedGenerator():
     """
@@ -179,10 +179,3 @@ class ThreadedGenerator():
 
         self._thread.join()
 
-def exec():
-    it = ThreadedGenerator([1,2,3,4,4,5,6,6,6], daemon=True)
-    for i in it:
-        if i is not None:
-            print(i)
-
-exec()

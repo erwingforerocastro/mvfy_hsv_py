@@ -108,3 +108,18 @@ async def insert_system(system: 'dict', db: SystemDB, loop: 'asyncio.AbstractEve
         return None
 
     return result
+
+@loop_manager
+async def insert_user(user: 'dict', db: UserDB, loop: 'asyncio.AbstractEventLoop') -> 'dict|None':
+    """add information about a user.
+
+    Returns:
+        str: id of user insert
+    """
+    use_cases = UserUseCases(db)
+    result = await loop.run_until_complete(use_cases.add_user(user))
+
+    if result == [] or result is None:
+        return None
+
+    return result

@@ -1,4 +1,6 @@
 import inspect
+import logging
+import cv2
 import numpy as np
 import math
 import func
@@ -121,7 +123,7 @@ class VisualKnowledge:
             "modified_on": self. modified_on,
         }
 
-    async def start(self) -> None:
+    async def start(self, cb: 'function') -> None:
         
         # found or add system
         system = await func.get_system(self.get_obj(), self.db_systems)
@@ -136,10 +138,57 @@ class VisualKnowledge:
             db = self.db_users
         )
 
+        #load descriptors
+        self.detector.load_encodings(encodings=users_queue)
+
         while True: 
             img = next(self.receiver())
             if img is not None:
-                await self.process_img(img)
-    
-    async def process_img(img: np.array) -> None:
-        pass
+                img_processed = await self.process_unknows(img)
+                await self.streamer(img = img_processed, size = None, title = self.title)
+
+    async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False, labels: tuple = ("Unknown" "Know")) -> None:
+
+        _, less_similar = await self.detector.detect_unknowns(img, (1 - self.max_descriptor_distance), resize_factor, labels)
+
+        # Display the results
+        return_size = 1 / resize_factor
+
+        for detection in less_similar:
+                
+            (top, right, bottom, left) = detection["location"]
+            # Scale back up face locations since the frame we detected in was scaled to 1/4 size
+            top *= return_size
+            right *= return_size
+            bottom *= return_size
+            left *= return_size
+
+            # Draw a box around the face
+            cv2.rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
+
+            if draw_label is True:
+                # Draw a label with a name below the face
+                cv2.rectangle(img, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
+                font = cv2.FONT_HERSHEY_DUPLEX
+                cv2.putText(img, detection["name"], (left + 6, bottom - 6), font, 1.0, (255, 255, 255), 1)
+        
+            #save information of detection
+            await self.set_detection({
+                "system_id": self.id,
+                "detection": "",
+                "author": "",
+                "detection": self.detection,
+                "properties": self.properties,
+                "init_date": self.init_date,
+                "last_date": self.last_date,
+                "knowledge": self.knowledge,
+                "frequency": self.frequency,
+                "author": self.author,
+            })
+            
+
+    async def set_detection(self, user: dict) -> None:
+        try:    
+            await func.insert_user(user, self.db_users)
+        except Exception as e:
+            logging.error(f"set_detection error to insert detection, {e}")

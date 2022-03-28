@@ -43,11 +43,11 @@ class Streamer():
         return wraper_function
 
     @staticmethod
-    async def stream_local(self,
+    async def stream_local(
         img: np.array,
         size: tuple = (1920, 1080),
         title: str = "title"
     ) -> None:
             if size is not None:
-                frame = cv2.resize(img, size)
+                img = cv2.resize(img, size)
             cv2.imshow(title, img)

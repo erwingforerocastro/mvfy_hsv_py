@@ -10,7 +10,7 @@ if __file__ == "__main__":
     visual.set_conf(
         detector=FaceRecognition,
         receiver=Receiver.ip_cam_capture(ip_cam=""),
-        streamer=Streamer
+        streamer=Streamer.stream_local
     )
 
 
