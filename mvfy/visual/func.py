@@ -1,5 +1,7 @@
 import asyncio
 from asyncio import Queue, Task
+from datetime import datetime
+import logging
 from entities.visual_knowledge_entities import System
 from data_access.visual_knowledge_db import SystemDB, UserDB
 from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
@@ -51,6 +53,21 @@ async def async_queue_object_get(queue: 'Queue', callback: 'function', args: tup
 
     queue.task_done()
 
+def get_actual_date(format: str) -> datetime:
+    """Get the actual date from a given format.
+
+    Args:
+        format (str): valid format datetime
+
+    Returns:
+        datetime: formatted datetime
+    """
+    date = datetime.now()
+    try:
+        return datetime.strptime(date, format)
+    except Exception as e:
+        logging.error(f"get_actual_date - Error to format datetime {e}")
+        return date
 
 @loop_manager
 async def load_user_descriptors(system_id: str, db: UserDB, loop: 'asyncio.AbstractEventLoop') -> 'utils.ThreadedGenerator|None':

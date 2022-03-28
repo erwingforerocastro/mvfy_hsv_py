@@ -1,6 +1,8 @@
+import logging
 from ...utils import index as utils
 from abc import ABC, abstractmethod
 from typing import Iterable
+from deepface import DeepFace
 import cv2
 import numpy as np
 import face_recognition
@@ -25,7 +27,7 @@ class FaceRecognition(Detector):
             if encoding is not None:
                 self.encodings.append(encoding)
     
-    async def detect_unknowns(self, img: 'np.array', min_descriptor_distance: float, resize_factor: float = 0.25, labels: tuple = ("Unknown" "Know")) -> 'tuple(utils.ThreadedGenerator, utils.ThreadedGenerator)':
+    async def detect_unknowns(self, img: 'np.array', min_descriptor_distance: float, resize_factor: float = 0.25, labels: tuple = ("Unknown" "Know"), features: list = []) -> 'tuple(utils.ThreadedGenerator, utils.ThreadedGenerator)':
 
         small_img = cv2.resize(img, (0, 0), fx=resize_factor, fy=resize_factor) 
         rgb_small_img = small_img[:, :, ::-1] #BGR to RBG
@@ -45,14 +47,16 @@ class FaceRecognition(Detector):
                     "name": labels[0],
                     "location": face_locations[idx],
                     "distance": face_distances[best_match_index],
-                    "encoding": face_encoding
+                    "encoding": face_encoding,
+                    "features": await self.analyze(rgb_small_img, features) #pendiente
                 })
             else:
                 more_similar.append({
                     "name": labels[1],
                     "location": face_locations[idx],
                     "distance": face_distances[best_match_index],
-                    "encoding": face_encoding
+                    "encoding": face_encoding,
+                    "features": await self.analyze(rgb_small_img, features)
                 })
         
         more_similar = utils.ThreadedGenerator(more_similar, daemon=True)
@@ -60,5 +64,20 @@ class FaceRecognition(Detector):
 
         return more_similar, less_similar
     
+    async def analyze(img: np.array, features: list) -> dict:
+        """Analyze 
 
-    
+        Args:
+            img (np.array): [description]
+            features (list): [description]
+
+        Returns:
+            dict: result of analyze
+        """
+        result = {}
+        try:
+            result = DeepFace.analyze(img, features)
+        except Exception as e:
+            logging.error(f"Detector - analyze - error to analyze img {e}")
+
+        return result

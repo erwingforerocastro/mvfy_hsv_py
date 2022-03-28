@@ -8,6 +8,7 @@ opencv-python = "*"
 pymongo = "*"
 flask-pymongo = "*"
 numpy = "*"
+deepface = "*"
 
 [dev-packages]
 autopep8 = "*"

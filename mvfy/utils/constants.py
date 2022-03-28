@@ -27,9 +27,10 @@ HTML_STREAMER = {
 
 #system
 ALLOWED_FEATURES = {
-    "ALL": "all",
-    "AGE_AND_GENDER": "ageandgender",
-    "EXPRESSIONS": "expressions",
+    "AGE": "age",
+    "GENDER": "gender",
+    "RACE": "race",
+    "EMOTION": "emotion"
 }
 TYPE_SYSTEM = {
     "OPTIMIZED": "optimized",

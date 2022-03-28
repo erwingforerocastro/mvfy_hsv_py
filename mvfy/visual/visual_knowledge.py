@@ -22,7 +22,8 @@ class VisualKnowledge:
     max_descriptor_distance: float,
     min_date_knowledge: float,
     min_frequency: float = 0.7,
-    features: dict = {},
+    resize_factor: float = 0.25,
+    features: list = [],
     type_system: str = "OPTIMIZED",
     title: str = None) -> None:
         
@@ -36,7 +37,7 @@ class VisualKnowledge:
             {String} db_name - name of db to be used.
             {Array} min_date_knowledge [min_date_knowledge=null] - minimum interval to determine a known user.
             {Number} min_frequency [min_frequency=0.7] - minimum frequency between days detectioned.
-            {String} features [features=null] - characteristics that will be saved in each detection.
+            {list} features [features=null] - characteristics that will be saved in each detection.
             {String} max_descriptor_distance [max_descriptor_distance=null] - max distance of diference between detections.
             {String} type_system [type_system=null] - type of system.
             {String} title [title=null] - title of system.
@@ -46,7 +47,7 @@ class VisualKnowledge:
 
         """
         #properties
-        self.id = None
+        self.id = ""
         self.type_service = type_service
         self.title = str(uuid.uuid4()) if title is None else title
         self.features = features
@@ -54,6 +55,7 @@ class VisualKnowledge:
         self.min_frequency = min_frequency
         self.max_descriptor_distance = max_descriptor_distance
         self.type_system = type_system
+        self.resize_factor = resize_factor
         
         #agents 
         self.detector = None
@@ -67,6 +69,7 @@ class VisualKnowledge:
         self.matches = None
         self.interval_streaming = None
         self.execution = False
+        self.date_format = const.DATE_FORMAT
 
         #DB
         self.db_systems = SystemDB(
@@ -79,13 +82,26 @@ class VisualKnowledge:
             db = db_name,
             collection = const.COLLECTIONS["USERS"]
         )
-        
+    
+    def __insert_system(self, system: dict) -> None:
+        pass
+        # self.id = ""
+        # self.type_service = type_service
+        # self.title = system
+        # self.features = features
+        # self.min_date_knowledge = min_date_knowledge
+        # self.min_frequency = min_frequency
+        # self.max_descriptor_distance = max_descriptor_distance
+        # self.type_system = type_system
+        # self.resize_factor = resize_factor
+
     def set_conf(self, 
     receiver: 'function',
     detector: 'Detector',
     streamer: 'Streamer',
     stream_fps: float = 30,
     display_size: dict = None,
+    date_format: str = None
     ) -> None:
         """Set configuration parameters for this instance .
 
@@ -103,6 +119,7 @@ class VisualKnowledge:
 
         #more info
         self.display_size = display_size if display_size is not None else self.display_size
+        self.date_format = date_format if date_format is not None else self.date_format
 
     def get_obj(self) -> dict:
         """Get a dict of the attributes for this instance.
@@ -111,19 +128,19 @@ class VisualKnowledge:
             dict: instance relevant features
         """
         return {
-            "title": self. title,
-            "type_service": self. type_service,
-            "max_descriptor_distance": self. max_descriptor_distance,
-            "min_date_knowledge": self. min_date_knowledge,
-            "min_frequency": self. min_frequency,
-            "features": self. features,
-            "type_system": self. type_system,
-            "id": self. id,
-            "created_on": self. created_on,
-            "modified_on": self. modified_on,
+            "title": self.title,
+            "type_service": self.type_service,
+            "max_descriptor_distance": self.max_descriptor_distance,
+            "min_date_knowledge": self.min_date_knowledge,
+            "min_frequency": self.min_frequency,
+            "features": self.features,
+            "type_system": self.type_system,
+            "id": self.id,
+            "created_on": self.created_on,
+            "modified_on": self.modified_on,
         }
-
-    async def start(self, cb: 'function') -> None:
+        
+    async def start(self, draw_label: bool, cb: 'function') -> None:
         
         # found or add system
         system = await func.get_system(self.get_obj(), self.db_systems)
@@ -144,12 +161,17 @@ class VisualKnowledge:
         while True: 
             img = next(self.receiver())
             if img is not None:
-                img_processed = await self.process_unknows(img)
+                img_processed = await self.process_unknows(
+                    img = img,
+                    resize_factor = self.resize_factor,
+                    draw_label = draw_label,
+                    features = self.features
+                    )
                 await self.streamer(img = img_processed, size = None, title = self.title)
 
-    async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False, labels: tuple = ("Unknown" "Know")) -> None:
+    async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False, labels: tuple = ("Unknown" "Know"), features: list = []) -> None:
 
-        _, less_similar = await self.detector.detect_unknowns(img, (1 - self.max_descriptor_distance), resize_factor, labels)
+        more_similar, less_similar = await self.detector.detect_unknowns(img, (1 - self.max_descriptor_distance), resize_factor, labels, features)
 
         # Display the results
         return_size = 1 / resize_factor
@@ -175,15 +197,13 @@ class VisualKnowledge:
             #save information of detection
             await self.set_detection({
                 "system_id": self.id,
-                "detection": "",
-                "author": "",
-                "detection": self.detection,
-                "properties": self.properties,
-                "init_date": self.init_date,
-                "last_date": self.last_date,
-                "knowledge": self.knowledge,
-                "frequency": self.frequency,
-                "author": self.author,
+                "detection": detection["encoding"],
+                "features": detection["features"],
+                "author": str(uuid.uuid4()),
+                "init_date": func.get_actual_date(self.date_format),
+                "last_date": func.get_actual_date(self.date_format),
+                "knowledge": False,
+                "frequency": 0,
             })
             
 
