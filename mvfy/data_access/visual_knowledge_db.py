@@ -20,35 +20,55 @@ class SystemDB(MongoDB):
 
         return found
 
-    def find_by_hash(self, hash: 'dict', **kargs) -> 'None|UpdateResult':
+    def find_by_hash(self, hash: 'dict', **kargs) -> 'None|dict':
 
-        return super().find_one(self.collection, {"hash": hash}, **kargs)
+        found = self.find_one(self.collection, {"hash": hash}, **kargs)
 
-    def insert_one(self, value: 'dict', **kargs) -> 'ObjectId':
+        if found is None:
+            return None
 
-        if "id" in value.values():
+        found["id"] = str(found.pop("_id"))
+
+        return found
+
+    def insert_one(self, value: 'dict', **kargs) -> 'dict':
+
+        if "id" in value.keys():
             value["_id"] = ObjectId(value.pop("id"))
 
-        return super().insert_one(self.collection, value, **kargs)
+        insert = self.insert_one(self.collection, value, **kargs)
 
-    def update_one(self, id: 'str', update: 'dict', **kargs) -> 'UpdateResult':
+        return self.find_one({"_id": insert.inserted_id})
+
+    def update_one(self, id: 'str', update: 'dict', **kargs) -> 'dict':
 
         _id = ObjectId(id)
+        updated = self.update_one(self.collection, {"_id": _id}, update, **kargs)
 
-        return super().update_one(self.collection, {"_id": _id}, update, **kargs)
+        updated["id"] = str(updated.pop("_id"))
 
-    def find_one(self, filter: 'Any', **kargs) -> 'UpdateResult':
+        return updated
+
+    def find_one(self, filter: 'Any', **kargs) -> 'None|dict':
         if "id" in filter.values():
             filter["_id"] = ObjectId(filter.pop("id"))
 
-        return super().find_one(self.collection, filter, **kargs)
+        found = self.find_one(self.collection, filter, **kargs)
+
+        if found is None:
+            return None
+
+        found["id"] = str(found.pop("_id"))
+
+        return found
     
-    def delete_one(self, filter: 'Any', **kargs) -> 'DeleteResult':
+    def delete_one(self, filter: 'Any', **kargs) -> 'None':
         
         if "id" in filter.values():
             filter["_id"] = ObjectId(filter.pop("id"))
 
-        return super().delete_one(self.collection, filter, **kargs)
+        self.delete_one(self.collection, filter, **kargs)
+        
 
 class UserDB(MongoDB):
 
@@ -67,34 +87,51 @@ class UserDB(MongoDB):
 
         return found
 
-    def find_many(self, filter: 'Any', **kargs) -> 'list[Any]|None':
+    def find_many(self, filter: 'Any', **kargs) -> 'list[dict]|None':
+
         if "id" in filter.values():
             filter["_id"] = ObjectId(filter.pop("id"))
 
-        return super().find(self.collection, filter, **kargs)
+        founds = self.find(self.collection, filter, **kargs)
 
-    def insert_one(self, value: 'dict', **kargs) -> 'ObjectId':
+        if founds is None:
+            return None
+
+        for found in founds:
+            found["id"] = str(found.pop("_id"))
+
+        return founds
+
+    def insert_one(self, value: 'dict', **kargs) -> 'dict|None':
 
         if "id" in value.values():
             value["_id"] = ObjectId(value.pop("id"))
 
-        return super().insert_one(self.collection, value, **kargs)
+        result = self.insert_one(self.collection, value, **kargs)
 
-    def update_one(self, id: 'str', update: 'dict', **kargs) -> 'UpdateResult':
+        return  self.find_one({"_id": result.inserted_id})
+
+    def update_one(self, id: 'str', update: 'dict', **kargs) -> 'dict|None':
 
         _id = ObjectId(id)
 
-        return super().update_one(self.collection, {"_id": _id}, update, **kargs)
+        updated = self.update_one(self.collection, {"_id": _id}, update, **kargs)
+        updated["id"] = str(updated.pop("_id"))
+
+        return updated
 
     def find_one(self, filter: 'Any', **kargs) -> 'UpdateResult':
         if "id" in filter.values():
             filter["_id"] = ObjectId(filter.pop("id"))
 
-        return super().find_one(self.collection, filter, **kargs)
-    
+        found = self.find_one(self.collection, filter, **kargs)
+        found["id"] = str(found.pop("_id"))
+
+        return found
+
     def delete_one(self, filter: 'Any', **kargs) -> 'DeleteResult':
         
         if "id" in filter.values():
             filter["_id"] = ObjectId(filter.pop("id"))
 
-        return super().delete_one(self.collection, filter, **kargs)
+        self.delete_one(self.collection, filter, **kargs)

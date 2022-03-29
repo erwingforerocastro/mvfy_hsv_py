@@ -9,10 +9,11 @@ import face_recognition
 
 class Detector(ABC):
     def __init__(self) -> None:
+        self.authors = []
         self.encodings = []
-    
+
     @abstractmethod
-    async def load_encodings(self):
+    async def load_users(self):
         pass
 
     @abstractmethod
@@ -21,12 +22,14 @@ class Detector(ABC):
 
 class FaceRecognition(Detector):
 
-    async def load_encodings(self, encodings: Iterable) -> None:
+    async def load_users(self, users: Iterable) -> None:
         
-        for encoding in encodings:
-            if encoding is not None:
-                self.encodings.append(encoding)
-    
+        for user in users:
+            if user is not None: 
+                #{"detection": ..., "author": ...}
+                self.authors.append(user["author"])
+                self.encodings.append(user["detection"])
+
     async def detect_unknowns(self, img: 'np.array', min_descriptor_distance: float, resize_factor: float = 0.25, labels: tuple = ("Unknown" "Know"), features: list = []) -> 'tuple(utils.ThreadedGenerator, utils.ThreadedGenerator)':
 
         small_img = cv2.resize(img, (0, 0), fx=resize_factor, fy=resize_factor) 
@@ -55,6 +58,7 @@ class FaceRecognition(Detector):
                     "name": labels[1],
                     "location": face_locations[idx],
                     "distance": face_distances[best_match_index],
+                    "author": self.authors[best_match_index],
                     "encoding": face_encoding,
                     "features": await self.analyze(rgb_small_img, features)
                 })
@@ -65,11 +69,11 @@ class FaceRecognition(Detector):
         return more_similar, less_similar
     
     async def analyze(img: np.array, features: list) -> dict:
-        """Analyze 
+        """Analyze img face detection
 
         Args:
-            img (np.array): [description]
-            features (list): [description]
+            img (np.array): img with face
+            features (list): list of features to extract, see `utils.constants` 
 
         Returns:
             dict: result of analyze

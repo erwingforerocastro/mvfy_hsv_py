@@ -1,9 +1,13 @@
 
+from datetime import datetime
 import inspect
 import logging
 from queue import Queue
 from threading import Thread
+from time import strptime
 from typing import Iterable, Iterator
+
+from mvfy.visual.func import get_actual_date
 
 
 def distribute_object(object_left: dict, object_right: dict) -> dict:
@@ -107,6 +111,49 @@ def extract_objects(object_list: list[dict], keys: list[str]) -> list[dict]:
         })
 
     return res
+
+def get_date_diff_so_far(date: datetime, _type: str = "days") -> float:
+    """Returns the difference between two date objects.
+
+    Args:
+        date (datetime): date to be compared with today
+        _type (str, optional): type of difference <"days" or "weeks" or "months">. Defaults to "days".
+
+    Returns:
+        float: difference between "date" and now
+    """
+    date_now = get_actual_date()
+    if date is not None:
+        res = None
+        if _type == "days":
+            res = abs((date_now - date).days) 
+        elif _type == "weeks":
+            res = abs((date_now - date).days) // 7
+        elif _type == "months":
+            res = abs((date_now.year - date.year) * 12 + date_now.month - date.month)
+
+        return res
+    
+def frequency(total: float, percentage: float, value: float, invert: bool = False) -> float:
+    """Return frequency of a given value .
+
+    Freq = v*t/p
+
+    v-> value
+    t-> total
+    p-> percentage
+
+    Args:
+        total (float): total value
+        percentage (float): percentage value between 0 and 1
+        value (float): value
+        invert (bool, optional): change total by percentage in formula. Defaults to False.
+
+    Returns:
+        float: frequency result
+    """
+    return (value * total) / percentage if invert is True else (value * percentage) / total
+
 #------------------------------------------------------------------------------- CLASES ----------------------------------------------------------------------------------------
 
 class ThreadedGenerator():

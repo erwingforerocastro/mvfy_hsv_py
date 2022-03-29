@@ -64,7 +64,7 @@ def get_actual_date(format: str) -> datetime:
     """
     date = datetime.now()
     try:
-        return datetime.strptime(date, format)
+        return datetime.strptime(date, format) if format is not None else date
     except Exception as e:
         logging.error(f"get_actual_date - Error to format datetime {e}")
         return date
@@ -92,7 +92,7 @@ async def load_user_descriptors(system_id: str, db: UserDB, loop: 'asyncio.Abstr
         return None
 
     users_queue = utils.ThreadedGenerator(results, daemon=True)
-    users_queue.insert_action(cb=utils.extract_objects, args=(["detection"]))
+    users_queue.insert_action(cb=utils.extract_objects, args=(["detection", "author"]))
 
     return users_queue
 
@@ -135,6 +135,21 @@ async def insert_user(user: 'dict', db: UserDB, loop: 'asyncio.AbstractEventLoop
     """
     use_cases = UserUseCases(db)
     result = await loop.run_until_complete(use_cases.add_user(user))
+
+    if result == [] or result is None:
+        return None
+
+    return result
+
+@loop_manager
+async def find_user(filter: 'dict', db: UserDB, loop: 'asyncio.AbstractEventLoop') -> 'dict|None':
+    """search information about a user.
+
+    Returns:
+        str: id of user insert
+    """
+    use_cases = UserUseCases(db)
+    result = await loop.run_until_complete(use_cases.get_user(filter))
 
     if result == [] or result is None:
         return None

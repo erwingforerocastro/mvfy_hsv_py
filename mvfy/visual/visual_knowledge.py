@@ -1,13 +1,12 @@
-import inspect
+import asyncio
 import logging
+from threading import Thread
 import cv2
 import numpy as np
-import math
-import func
-import asyncio
 import uuid
 
-from utils import constants as const, index as utils
+from . import func
+from ..utils import constants as const, index as utils
 from utils.detectors import Detector
 from utils.streamer import Streamer
 from data_access.visual_knowledge_db import SystemDB, UserDB
@@ -70,6 +69,7 @@ class VisualKnowledge:
         self.interval_streaming = None
         self.execution = False
         self.date_format = const.DATE_FORMAT
+        self.draw_label = True
 
         #DB
         self.db_systems = SystemDB(
@@ -84,16 +84,16 @@ class VisualKnowledge:
         )
     
     def __insert_system(self, system: dict) -> None:
-        pass
-        # self.id = ""
-        # self.type_service = type_service
-        # self.title = system
-        # self.features = features
-        # self.min_date_knowledge = min_date_knowledge
-        # self.min_frequency = min_frequency
-        # self.max_descriptor_distance = max_descriptor_distance
-        # self.type_system = type_system
-        # self.resize_factor = resize_factor
+
+        self.id = system["id"]
+        self.type_service = system["type_service"] if system["type_service"] is not None else self.type_service
+        self.title = system["title"] if system["title"] is not None else self.title
+        self.features = system["features"] if system["features"] is not None else self.features
+        self.min_date_knowledge = system["min_date_knowledge"] if system["min_date_knowledge"] is not None else self.min_date_knowledge
+        self.min_frequency = system["min_frequency"] if system["min_frequency"] is not None else self.min_frequency
+        self.max_descriptor_distance = system["max_descriptor_distance"] if system["max_descriptor_distance"] is not None else self.max_descriptor_distance
+        self.type_system = system["type_system"] if system["type_system"] is not None else self.type_system
+        self.resize_factor = system["resize_factor"] if system["resize_factor"] is not None else self.resize_factor
 
     def set_conf(self, 
     receiver: 'function',
@@ -101,7 +101,8 @@ class VisualKnowledge:
     streamer: 'Streamer',
     stream_fps: float = 30,
     display_size: dict = None,
-    date_format: str = None
+    date_format: str = None,
+    draw_label: bool = None
     ) -> None:
         """Set configuration parameters for this instance .
 
@@ -120,6 +121,7 @@ class VisualKnowledge:
         #more info
         self.display_size = display_size if display_size is not None else self.display_size
         self.date_format = date_format if date_format is not None else self.date_format
+        self.draw_label = draw_label if draw_label is not None else self.draw_label
 
     def get_obj(self) -> dict:
         """Get a dict of the attributes for this instance.
@@ -139,8 +141,8 @@ class VisualKnowledge:
             "created_on": self.created_on,
             "modified_on": self.modified_on,
         }
-        
-    async def start(self, draw_label: bool, cb: 'function') -> None:
+
+    async def start(self, cb: 'function' = None) -> None:
         
         # found or add system
         system = await func.get_system(self.get_obj(), self.db_systems)
@@ -156,7 +158,7 @@ class VisualKnowledge:
         )
 
         #load descriptors
-        self.detector.load_encodings(encodings=users_queue)
+        self.detector.load_users(users = users_queue)
 
         while True: 
             img = next(self.receiver())
@@ -164,13 +166,26 @@ class VisualKnowledge:
                 img_processed = await self.process_unknows(
                     img = img,
                     resize_factor = self.resize_factor,
-                    draw_label = draw_label,
+                    draw_label = self.draw_label,
                     features = self.features
                     )
                 await self.streamer(img = img_processed, size = None, title = self.title)
+                if cb is not None:
+                    cb(img)
 
-    async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False, labels: tuple = ("Unknown" "Know"), features: list = []) -> None:
+    async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False, labels: tuple = ("Unknown" "Know"), features: list = []) -> 'np.array':
+        """Process unknowns users.
 
+        Args:
+            img (np.array): img with faces
+            resize_factor (float, optional): resize image to acelerate process. Defaults to 0.25.
+            draw_label (bool, optional): draw labels over the faces. Defaults to False.
+            labels (tuple, optional): labels for unknown users and know users. Defaults to ("Unknown" "Know").
+            features (list, optional): list of features to save see utils.constants. Defaults to [].
+
+        Returns:
+            np.array: img
+        """
         more_similar, less_similar = await self.detector.detect_unknowns(img, (1 - self.max_descriptor_distance), resize_factor, labels, features)
 
         # Display the results
@@ -205,9 +220,52 @@ class VisualKnowledge:
                 "knowledge": False,
                 "frequency": 0,
             })
-            
+        
+        #evaluate knowed users
+        for detection in more_similar:
+
+            user = await func.find_user({
+                "author": detection["author"]
+            })
+            if user is None:
+                logging.error(f"Error user not found in BD, author: {detection['author']}")
+
+            await self.evaluate_detection(user)
+
+        return img
+
+    async def evaluate_detection(self, user: dict) -> dict:
+        """Evaluate the user s detection.
+
+        Args:
+            user (dict): user to be evaluated
+
+        Returns:
+            dict: user modified
+        """
+        prev_user = user
+        diff_date = utils.get_date_diff_so_far(user.init_date, self.min_date_knowledge[1])
+
+        if diff_date > self.min_date_knowledge[0] and user.frequency >= self.frequency:
+            user["knowledge"] = True
+
+        elif utils.get_date_diff_so_far(user.last_date, self.min_date_knowledge[1]) > 0:
+
+            prev_days = utils.frequency(total = self.min_date_knowledge[0], percentage = 1, value = self.frequency, invert = True) 
+            user.last_date = utils.get_actual_date(self.date_format)
+            user.frequency = utils.frequency(self.min_date_knowledge[0], 1, prev_days + 1) 
+
+        return await func.update_user({
+            **user,
+            "modified_on": utils.get_actual_date(self.date_format)
+        }, self.db_users) if prev_user != user else user
 
     async def set_detection(self, user: dict) -> None:
+        """Set the detection of a user in the database .
+
+        Args:
+            user (dict): [description]
+        """
         try:    
             await func.insert_user(user, self.db_users)
         except Exception as e:
