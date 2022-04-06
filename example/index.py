@@ -1,3 +1,4 @@
+import asyncio
 from mvfy.visual import VisualKnowledge
 from mvfy.visual.utils import Streamer, Receiver, FaceRecognition
 from mvfy.utils import constants as const
@@ -23,6 +24,8 @@ if __file__ == "__main__":
         receiver=Receiver.ip_cam_capture(ip_cam=""),
         streamer=Streamer.stream_local
     )
+    
+    asyncio.run(visual.run())
 
 
 

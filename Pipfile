@@ -9,6 +9,7 @@ pymongo = "*"
 flask-pymongo = "*"
 numpy = "*"
 deepface = "*"
+apscheduler = "*"
 
 [dev-packages]
 autopep8 = "*"

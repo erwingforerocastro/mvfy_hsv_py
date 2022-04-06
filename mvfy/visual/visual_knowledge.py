@@ -1,16 +1,20 @@
 import asyncio
 import logging
 from threading import Thread
+from time import sleep
 import cv2
 import numpy as np
 import uuid
 
 from . import func
-from ..utils import constants as const, index as utils
+from datetime import datetime
 from utils.detectors import Detector
 from utils.streamer import Streamer
 from data_access.visual_knowledge_db import SystemDB, UserDB
-from datetime import datetime
+from ..utils import constants as const, index as utils, feature_flags as ft
+from apscheduler.schedulers.background import BackgroundScheduler
+
+
 
 class VisualKnowledge:
 
@@ -83,6 +87,24 @@ class VisualKnowledge:
             collection = const.COLLECTIONS["USERS"]
         )
     
+    async def __preload(self) -> None:
+
+        # found or add system
+        system = await func.get_system(self.get_obj(), self.db_systems)
+        if system is None:
+            system = await func.insert_system(self.get_obj(), self.db_users)
+            if system is None:
+                raise ValueError("Error to create or find system")
+
+        #get descriptors
+        users_queue = await func.load_user_descriptors(
+            system_id = self.id,
+            db = self.db_users
+        )
+
+        #load descriptors
+        self.detector.load_users(users = users_queue)
+
     def __insert_system(self, system: dict) -> None:
 
         self.id = system["id"]
@@ -144,21 +166,7 @@ class VisualKnowledge:
 
     async def start(self, cb: 'function' = None) -> None:
         
-        # found or add system
-        system = await func.get_system(self.get_obj(), self.db_systems)
-        if system is None:
-            system = await func.insert_system(self.get_obj(), self.db_users)
-            if system is None:
-                raise ValueError("Error to create or find system")
-
-        #get descriptors
-        users_queue = await func.load_user_descriptors(
-            system_id = self.id,
-            db = self.db_users
-        )
-
-        #load descriptors
-        self.detector.load_users(users = users_queue)
+        Thread(target=lambda: print(), args=(2,))
 
         while True: 
             img = next(self.receiver())
@@ -172,6 +180,9 @@ class VisualKnowledge:
                 await self.streamer(img = img_processed, size = None, title = self.title)
                 if cb is not None:
                     cb(img)
+
+            if ft.ENVIROMENT == "DEV":
+                sleep(secs=5)
 
     async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False, labels: tuple = ("Unknown" "Know"), features: list = []) -> 'np.array':
         """Process unknowns users.

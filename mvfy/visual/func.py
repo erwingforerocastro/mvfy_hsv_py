@@ -4,10 +4,13 @@ from datetime import datetime
 import logging
 from entities.visual_knowledge_entities import System
 from data_access.visual_knowledge_db import SystemDB, UserDB
+from apscheduler.schedulers.background import BackgroundScheduler
 from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
 from use_cases.visual_knowledge_cases import UserUseCases
 from ..utils import index as utils
 
+async def scheduler() -> None:
+    pass
 async def loop_manager(func: function) -> 'function':
     """Decorator for Manage Event Loop.
 
