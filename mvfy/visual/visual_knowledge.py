@@ -64,7 +64,7 @@ class VisualKnowledge:
 
         #more info
         self.type_model_detection = None
-        self.display_size = { "width": 300, "height": 300 }
+        self.display_size = { "width": 720, "height": 720 }
         self.matches = None
         self.interval_streaming = None
         self.execution = False
