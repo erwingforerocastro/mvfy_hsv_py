@@ -5,11 +5,16 @@ BASE_PROJECT = os.path.abspath(
     os.path.join(__file__, "../../..")
 ) if ENVIROMENT == "DEV" else os.getcwd()
 
-UNKNOWS_URL = os.path.join(BASE_PROJECT, '/unknows_url')
-ACQUAINTANCES_URL = os.path.join(BASE_PROJECT, '/acquaintances_url')
-MODELS_URL = os.path.join(BASE_PROJECT, '/src/mvfy/models')
-CONFIG_URL = os.path.join(BASE_PROJECT, '/config')
+UNKNOWS_URL = os.path.join(BASE_PROJECT, 'unknows_url')
+ACQUAINTANCES_URL = os.path.join(BASE_PROJECT, 'acquaintances_url')
+MODELS_URL = os.path.join(BASE_PROJECT, 'src/mvfy/models')
+CONFIG_URL = os.path.join(BASE_PROJECT, 'config')
 PORT = 3000 if (v:=os.getenv("PORT")) is None else v
+
+COLLECTIONS = {
+    "USERS": "users",
+    "SYSTEMS": "systems"
+}
 
 #static
 HTML_STREAMER = {
@@ -22,9 +27,10 @@ HTML_STREAMER = {
 
 #system
 ALLOWED_FEATURES = {
-    "ALL": "all",
-    "AGE_AND_GENDER": "ageandgender",
-    "EXPRESSIONS": "expressions",
+    "AGE": "age",
+    "GENDER": "gender",
+    "RACE": "race",
+    "EMOTION": "emotion"
 }
 TYPE_SYSTEM = {
     "OPTIMIZED": "optimized",

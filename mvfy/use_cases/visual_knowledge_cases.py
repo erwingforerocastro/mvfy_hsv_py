@@ -1,12 +1,12 @@
 from typing import Any
 from utils import index as utils
-from entities.visual_knowledge.entities import System, User
+from entities.visual_knowledge_entities import System, User
 
 class SystemUseCases:
     def __init__(self, db) -> None:
         self.db = db
 
-    def add_system(self, system: 'System') -> 'None|Any':
+    def add_system(self, system: 'System') -> 'None|dict':
         result = None
         if isinstance(system, (System)):
             result = self.db.insert_one(self.collection, system.get_obj())
@@ -16,13 +16,17 @@ class SystemUseCases:
         
         return result
     
-    def get_system(self, filter: 'dict') -> 'None|System':
+    def get_system(self, system: 'dict') -> 'None|dict':
 
-        result = self.db.find_one(filter)
-        res_system = System(**result)
-        return res_system
+        res_system = System(**system)
+
+        if res_system.id is not None:
+            result = self.db.find_by_id(res_system.id)
+        else:
+            result = self.db.find_by_hash(res_system.hash)
+        return result
     
-    def update_system(self, id: 'str', new_system: 'dict') -> 'None|Any':
+    def update_system(self, id: 'str', new_system: 'dict') -> 'None|dict':
 
         if id is None:
             raise ValueError("You must supply an id.")
@@ -36,7 +40,7 @@ class SystemUseCases:
 
         return self.db.update_one(id, updated_system)
     
-    def delete_system(self, filter: 'dict') -> 'None|Any':
+    def delete_system(self, filter: 'dict') -> 'None|dict':
 
         if filter["id"] is None:
             raise ValueError("You must supply an id.")
@@ -47,7 +51,7 @@ class UserUseCases:
     def __init__(self, db) -> None:
         self.db = db
 
-    def add_user(self, user: 'User') -> 'None|Any':
+    def add_user(self, user: 'User') -> 'None|dict':
         result = None
         if isinstance(user, (User)):
             result = self.db.insert_one(self.collection, user.get_obj())

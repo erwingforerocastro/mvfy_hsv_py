@@ -47,9 +47,8 @@ class Receiver:
 
                 while True:
                     try:
-                        if stream is None:
-                        stream = socketio.on('connect')(ws)
-                        yield stream.read()
+                        # if stream is None:
+                        #     stream = socketio.on('connect')(lambda: yield stream.read())
                         
                         print(f"conecting.... {ip_cam}")
                         if stream is None:

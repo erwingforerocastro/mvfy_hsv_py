@@ -35,9 +35,9 @@ class MetaUser(type):
             raise ValueError(
                 f"Invalid last_date: {dct['last_date']}, must be a datetime")
 
-        if not isinstance(dct["properties"], (dict, object)) and dct["properties"] is not None:
+        if not isinstance(dct["features"], (dict, object)) and dct["features"] is not None:
             raise ValueError(
-                f"Invalid properties: {dct['properties']}, must be a dictionary")
+                f"Invalid features: {dct['features']}, must be a dictionary")
 
         if not isinstance(dct["knowledge"], (bool)) and dct["knowledge"] is not None:
             raise ValueError(
@@ -80,16 +80,17 @@ class MetaSystem(type):
             raise ValueError(
                 f"Invalid min_frequency: {dct['min_frequency']}, must be a float")
 
-        if not isinstance(dct["features"], (dict)):
+        if not isinstance(dct["resize_factor"], (float)):
             raise ValueError(
-                f"Invalid features: {dct['features']}, must be a dictionary")
+                f"Invalid resize_factor: {dct['resize_factor']}, must be a float")
+
+        if not isinstance(dct["features"], (list)):
+            raise ValueError(
+                f"Invalid features: {dct['features']}, must be a list")
 
         if not isinstance(dct["type_system"], (str)) or dct["type_system"] not in TYPE_SYSTEM.values():
             raise ValueError(
                 f"Invalid type_system: {dct['type_system']}, must be a string")
-
-        if not isinstance(dct["id"], (str)):
-            raise ValueError(f"Invalid id: {dct['id']}, must be a string")
 
         if not isinstance(dct["title"], (str)):
             raise ValueError(
@@ -112,21 +113,21 @@ class User(metaclass=MetaUser):
     """
 
     def __init__(self,
-                 id: str,
                  system_id: str,
                  author: str,
                  detection: 'np.float64',
                  init_date: datetime,
                  last_date: datetime,
-                 properties: dict = {},
+                 features: dict = {},
                  knowledge: bool = False,
-                 frequency: int = 1,
+                 frequency: int = 0,
                  created_on: datetime = datetime.now(),
                  modified_on: datetime = datetime.now(),
+                 id: str = "",
                  ) -> None:
 
         self.detection = detection
-        self.properties = properties
+        self.features = features
         self.init_date = init_date
         self.last_date = last_date
         self.knowledge = knowledge
@@ -160,18 +161,20 @@ class System(metaclass=MetaSystem):
                  max_descriptor_distance: float,
                  min_date_knowledge: list,
                  min_frequency: float,
-                 features: dict,
+                 resize_factor: float,
+                 features: list,
                  type_system: str,
-                 id: str,
                  title: str,
                  created_on: datetime = datetime.now(),
                  modified_on: datetime = datetime.now(),
+                 id: str = "",
                  ) -> None:
 
         self.type_service = type_service
         self.max_descriptor_distance = max_descriptor_distance
         self.min_date_knowledge = min_date_knowledge
         self.min_frequency = min_frequency
+        self.resize_factor = resize_factor
         self.features = features
         self.type_system = type_system
         self.id = id
@@ -185,6 +188,7 @@ class System(metaclass=MetaSystem):
             "max_descriptor_distance": self. max_descriptor_distance,
             "min_date_knowledge": self. min_date_knowledge,
             "min_frequency": self. min_frequency,
+            "resize_factor": self.resize_factor,
             "features": self. features,
             "type_system": self. type_system,
             "id": self. id,
