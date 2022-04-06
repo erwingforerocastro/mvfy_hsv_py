@@ -186,6 +186,7 @@ class VisualKnowledge:
         Returns:
             np.array: img
         """
+        
         more_similar, less_similar = await self.detector.detect_unknowns(img, (1 - self.max_descriptor_distance), resize_factor, labels, features)
 
         # Display the results
