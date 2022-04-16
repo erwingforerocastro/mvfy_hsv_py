@@ -12,7 +12,6 @@ from utils.detectors import Detector
 from utils.streamer import Streamer
 from data_access.visual_knowledge_db import SystemDB, UserDB
 from ..utils import constants as const, index as utils, feature_flags as ft
-from apscheduler.schedulers.background import BackgroundScheduler
 
 
 

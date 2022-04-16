@@ -9,8 +9,10 @@ from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
 from use_cases.visual_knowledge_cases import UserUseCases
 from ..utils import index as utils
 
-async def scheduler() -> None:
-    pass
+async def scheduler(job: function) -> None:
+    _scheduler = BackgroundScheduler()
+    _scheduler.add_job()
+    
 async def loop_manager(func: function) -> 'function':
     """Decorator for Manage Event Loop.
 
