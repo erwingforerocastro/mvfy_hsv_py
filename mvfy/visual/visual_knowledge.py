@@ -5,9 +5,12 @@ from time import sleep
 import cv2
 import numpy as np
 import uuid
+from apscheduler.triggers.cron import CronTrigger
+from tzlocal import get_localzone
 
 from . import func
 from datetime import datetime
+
 from utils.detectors import Detector
 from utils.streamer import Streamer
 from data_access.visual_knowledge_db import SystemDB, UserDB
@@ -73,6 +76,7 @@ class VisualKnowledge:
         self.execution = False
         self.date_format = const.DATE_FORMAT
         self.draw_label = True
+        self.cron_reload = self.__get_cron_trigger()
 
         #DB
         self.db_systems = SystemDB(
@@ -104,8 +108,21 @@ class VisualKnowledge:
         #load descriptors
         self.detector.load_users(users = users_queue)
 
-    def __insert_system(self, system: dict) -> None:
+    def __get_cron_trigger(self) -> CronTrigger:
+        """get crontrigger of now every day
 
+        Returns:
+            CronTrigger: trigger of action
+        """
+        _date = datetime.now(tz=get_localzone())
+        return CronTrigger(hour=_date.hour, minute=_date.minute, second=_date.second, timezone=get_localzone())
+
+    def __insert_system(self, system: dict) -> None:
+        """Insert system inside actual instance
+
+        Args:
+            system (dict): values to be replaced in instance
+        """
         self.id = system["id"]
         self.type_service = system["type_service"] if system["type_service"] is not None else self.type_service
         self.title = system["title"] if system["title"] is not None else self.title
@@ -123,7 +140,8 @@ class VisualKnowledge:
     stream_fps: float = 30,
     display_size: dict = None,
     date_format: str = None,
-    draw_label: bool = None
+    draw_label: bool = None,
+    cron_reload: CronTrigger = None,
     ) -> None:
         """Set configuration parameters for this instance .
 
@@ -143,6 +161,7 @@ class VisualKnowledge:
         self.display_size = display_size if display_size is not None else self.display_size
         self.date_format = date_format if date_format is not None else self.date_format
         self.draw_label = draw_label if draw_label is not None else self.draw_label
+        self.cron_reload = cron_reload if cron_reload is not None else self.cron_reload
 
     def get_obj(self) -> dict:
         """Get a dict of the attributes for this instance.
@@ -165,8 +184,10 @@ class VisualKnowledge:
 
     async def start(self, cb: 'function' = None) -> None:
         
-        Thread(target=lambda: print(), args=(2,))
+        func.async_scheduler(job=self.__preload, trigger=self.cron_reload)
 
+        await self.__preload()
+        
         while True: 
             img = next(self.receiver())
             if img is not None:

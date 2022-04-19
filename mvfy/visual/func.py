@@ -2,17 +2,22 @@ import asyncio
 from asyncio import Queue, Task
 from datetime import datetime
 import logging
+import uuid
 from entities.visual_knowledge_entities import System
 from data_access.visual_knowledge_db import SystemDB, UserDB
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.background import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
 from use_cases.visual_knowledge_cases import UserUseCases
 from ..utils import index as utils
 
-async def scheduler(job: function) -> None:
-    _scheduler = BackgroundScheduler()
-    _scheduler.add_job()
-    
+async def async_scheduler(job: function, trigger: CronTrigger, type: 'str' = "cron") -> None:
+
+    _scheduler = AsyncIOScheduler()
+    _scheduler.add_job(job, type, trigger=trigger, id=str(uuid.uuid4()))
+    _scheduler.start()
+
+    return _scheduler
 async def loop_manager(func: function) -> 'function':
     """Decorator for Manage Event Loop.
 
