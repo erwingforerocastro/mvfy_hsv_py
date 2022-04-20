@@ -5,20 +5,21 @@ import logging
 import uuid
 from entities.visual_knowledge_entities import System
 from data_access.visual_knowledge_db import SystemDB, UserDB
-from apscheduler.schedulers.background import AsyncIOScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
 from use_cases.visual_knowledge_cases import UserUseCases
 from ..utils import index as utils
 
-async def async_scheduler(job: function, trigger: CronTrigger, type: 'str' = "cron") -> None:
+async def async_scheduler(job: 'function', trigger: CronTrigger, type: 'str' = "cron") -> None:
 
     _scheduler = AsyncIOScheduler()
     _scheduler.add_job(job, type, trigger=trigger, id=str(uuid.uuid4()))
     _scheduler.start()
 
     return _scheduler
-async def loop_manager(func: function) -> 'function':
+    
+async def loop_manager(func: 'function') -> 'function':
     """Decorator for Manage Event Loop.
 
     Args:
@@ -62,22 +63,6 @@ async def async_queue_object_get(queue: 'Queue', callback: 'function', args: tup
         await callback(*args, queue_result=res)
 
     queue.task_done()
-
-def get_actual_date(format: str) -> datetime:
-    """Get the actual date from a given format.
-
-    Args:
-        format (str): valid format datetime
-
-    Returns:
-        datetime: formatted datetime
-    """
-    date = datetime.now()
-    try:
-        return datetime.strptime(date, format) if format is not None else date
-    except Exception as e:
-        logging.error(f"get_actual_date - Error to format datetime {e}")
-        return date
 
 @loop_manager
 async def load_user_descriptors(system_id: str, db: UserDB, loop: 'asyncio.AbstractEventLoop') -> 'utils.ThreadedGenerator|None':

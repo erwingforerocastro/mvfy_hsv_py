@@ -1,5 +1,5 @@
 from typing import Any
-from mongobd import MongoDB
+from .mongobd import MongoDB
 from bson.objectid import ObjectId
 from pymongo.results import UpdateResult, DeleteResult
 

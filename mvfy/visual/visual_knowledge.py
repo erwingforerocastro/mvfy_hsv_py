@@ -11,9 +11,8 @@ from tzlocal import get_localzone
 from . import func
 from datetime import datetime
 
-from utils.detectors import Detector
-from utils.streamer import Streamer
 from data_access.visual_knowledge_db import SystemDB, UserDB
+from .utils import Detector, Streamer
 from ..utils import constants as const, index as utils, feature_flags as ft
 
 
@@ -247,8 +246,8 @@ class VisualKnowledge:
                 "detection": detection["encoding"],
                 "features": detection["features"],
                 "author": str(uuid.uuid4()),
-                "init_date": func.get_actual_date(self.date_format),
-                "last_date": func.get_actual_date(self.date_format),
+                "init_date": utils.get_actual_date(self.date_format),
+                "last_date": utils.get_actual_date(self.date_format),
                 "knowledge": False,
                 "frequency": 0,
             })

@@ -5,105 +5,138 @@ import hashlib
 
 class MetaUser(type):
 
-    def __new__(cls, name, bases, dct):
-        MetaUser.validate_instance(dct)
-        return super().__new__(cls, name, bases, dct)
+    def __call__(self, 
+            system_id,
+            author,
+            detection,
+            init_date,
+            last_date,
+            features,
+            knowledge,
+            frequency,
+            created_on,
+            modified_on,
+            id):
 
-    @staticmethod
-    def validate_instance(dct: 'object'):
-        if not isinstance(dct["decoder"], (str)):
+        if not isinstance(system_id, (str)):
             raise ValueError(
-                f"Invalid decoder: {dct['decoder']}, must be a string")
+                f"Invalid system_id: {system_id}, must be a string")
 
-        if not isinstance(dct["system_id"], (str)):
+        if not isinstance(author, (str)):
             raise ValueError(
-                f"Invalid system_id: {dct['system_id']}, must be a string")
+                f"Invalid author: {author}, must be a string")
 
-        if not isinstance(dct["author"], (str)):
+        if not type(detection) == type(np.float64):
             raise ValueError(
-                f"Invalid author: {dct['author']}, must be a string")
+                f"Invalid detection: {detection}, must be a np.float64")
 
-        if not type(dct["detection"]) == type(np.float64):
+        if not type(init_date) is datetime.datetime:
             raise ValueError(
-                f"Invalid detection: {dct['detection']}, must be a np.float64")
+                f"Invalid init_date: {init_date}, must be a datetime")
 
-        if not type(dct["init_date"]) is datetime.datetime:
+        if not type(last_date) is datetime.datetime:
             raise ValueError(
-                f"Invalid init_date: {dct['init_date']}, must be a datetime")
+                f"Invalid last_date: {last_date}, must be a datetime")
 
-        if not type(dct["last_date"]) is datetime.datetime:
+        if not isinstance(features, (dict, object)) and features is not None:
             raise ValueError(
-                f"Invalid last_date: {dct['last_date']}, must be a datetime")
+                f"Invalid features: {features}, must be a dictionary")
 
-        if not isinstance(dct["features"], (dict, object)) and dct["features"] is not None:
+        if not isinstance(knowledge, (bool)) and knowledge is not None:
             raise ValueError(
-                f"Invalid features: {dct['features']}, must be a dictionary")
+                f"Invalid knowledge: {knowledge}, must be a dictionary")
 
-        if not isinstance(dct["knowledge"], (bool)) and dct["knowledge"] is not None:
+        if not isinstance(frequency, (np.number, int, float)) or frequency <= 0 or frequency > 1 or frequency is not None:
             raise ValueError(
-                f"Invalid knowledge: {dct['knowledge']}, must be a dictionary")
+                f"Invalid frequency: {frequency}, must be a number, between o and 1")
 
-        if not isinstance(dct["frequency"], (np.number, int, float)) or dct["frequency"] <= 0 or dct["frequency"] > 1 or dct["frequency"] is not None:
+        if type(created_on) is not datetime.datetime and created_on is not None:
             raise ValueError(
-                f"Invalid frequency: {dct['frequency']}, must be a number, between o and 1")
+                f"Invalid created_on: {created_on}, must be a datetime")
 
-        if type(dct["created_on"]) is not datetime.datetime and dct["created_on"] is not None:
+        if type(modified_on) is not datetime.datetime and modified_on is not None:
             raise ValueError(
-                f"Invalid created_on: {dct['created_on']}, must be a datetime")
+                f"Invalid modified_on: {modified_on}, must be a datetime")
 
-        if type(dct["modified_on"]) is not datetime.datetime and dct["modified_on"] is not None:
-            raise ValueError(
-                f"Invalid modified_on: {dct['modified_on']}, must be a datetime")
+        return super().__call__(system_id,
+            author,
+            detection,
+            init_date,
+            last_date,
+            features,
+            knowledge,
+            frequency,
+            created_on,
+            modified_on,
+            id)
 
 
 class MetaSystem(type):
 
-    def __new__(cls, name, bases, dct):
-        MetaSystem.validate_instance(dct)
-        return super().__new__(cls, name, bases, dct)
+    def __call__(self, 
+            type_service,
+            max_descriptor_distance,
+            min_date_knowledge,
+            min_frequency,
+            resize_factor,
+            features,
+            type_system,
+            title,
+            created_on,
+            modified_on,
+            id):
 
-    @staticmethod
-    def validate_instance(dct: 'dict'):
+        if not isinstance(type_service, (str)) or type_service not in TYPE_SERVICE.values():
+            raise ValueError(f"Invalid type_service: {type_service}")
 
-        if not isinstance(dct["type_service"], (str)) or dct["type_service"] not in TYPE_SERVICE.values():
-            raise ValueError(f"Invalid type_service: {dct['type_service']}")
-
-        if not isinstance(dct["max_descriptor_distance"], (float)) or dct["max_descriptor_distance"] <= 0 or dct["max_descriptor_distance"] > 1:
+        if not isinstance(max_descriptor_distance, (float)) or max_descriptor_distance <= 0 or max_descriptor_distance > 1:
             raise ValueError(
-                f"Invalid max_descriptor_distance: {dct['max_descriptor_distance']}")
+                f"Invalid max_descriptor_distance: {max_descriptor_distance}")
 
-        if not isinstance(dct["min_date_knowledge"], (list)):
+        if not isinstance(min_date_knowledge, (list)):
             raise ValueError(
-                f"Invalid min_date_knowledge: {dct['min_date_knowledge']}")
+                f"Invalid min_date_knowledge: {min_date_knowledge}")
 
-        if not isinstance(dct["min_frequency"], (float)):
+        if not isinstance(min_frequency, (float)):
             raise ValueError(
-                f"Invalid min_frequency: {dct['min_frequency']}, must be a float")
+                f"Invalid min_frequency: {min_frequency}, must be a float")
 
-        if not isinstance(dct["resize_factor"], (float)):
+        if not isinstance(resize_factor, (float)):
             raise ValueError(
-                f"Invalid resize_factor: {dct['resize_factor']}, must be a float")
+                f"Invalid resize_factor: {resize_factor}, must be a float")
 
-        if not isinstance(dct["features"], (list)):
+        if not isinstance(features, (list)):
             raise ValueError(
-                f"Invalid features: {dct['features']}, must be a list")
+                f"Invalid features: {features}, must be a list")
 
-        if not isinstance(dct["type_system"], (str)) or dct["type_system"] not in TYPE_SYSTEM.values():
+        if not isinstance(type_system, (str)) or type_system not in TYPE_SYSTEM.values():
             raise ValueError(
-                f"Invalid type_system: {dct['type_system']}, must be a string")
+                f"Invalid type_system: {type_system}, must be a string")
 
-        if not isinstance(dct["title"], (str)):
+        if not isinstance(title, (str)):
             raise ValueError(
-                f"Invalid title: {dct['title']}, must be a string")
+                f"Invalid title: {title}, must be a string")
 
-        if type(dct["created_on"]) is not datetime.datetime and dct["created_on"] is not None:
+        if type(created_on) is not datetime.datetime and created_on is not None:
             raise ValueError(
-                f"Invalid created_on: {dct['created_on']}, must be a datetime")
+                f"Invalid created_on: {created_on}, must be a datetime")
 
-        if type(dct["modified_on"]) is not datetime.datetime and dct["modified_on"] is not None:
+        if type(modified_on) is not datetime.datetime and modified_on is not None:
             raise ValueError(
-                f"Invalid modified_on: {dct['modified_on']}, must be a datetime")
+                f"Invalid modified_on: {modified_on}, must be a datetime")
 
+        return super().__call__(type_service,
+                 max_descriptor_distance,
+                 min_date_knowledge,
+                 min_frequency,
+                 resize_factor,
+                 features,
+                 type_system,
+                 title,
+                 created_on,
+                 modified_on,
+                 id)
+        
 
 class User(metaclass=MetaUser):
     """Entity User

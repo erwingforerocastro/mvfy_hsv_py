@@ -1,2 +1,2 @@
-from func import *
-from visual_knowledge import *
+from .func import *
+from .visual_knowledge import *

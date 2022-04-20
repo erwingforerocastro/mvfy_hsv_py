@@ -7,9 +7,22 @@ from threading import Thread
 from time import strptime
 from typing import Iterable, Iterator
 
-from mvfy.visual.func import get_actual_date
+def get_actual_date(format: str) -> datetime:
+    """Get the actual date from a given format.
 
+    Args:
+        format (str): valid format datetime
 
+    Returns:
+        datetime: formatted datetime
+    """
+    date = datetime.now()
+    try:
+        return datetime.strptime(date, format) if format is not None else date
+    except Exception as e:
+        logging.error(f"get_actual_date - Error to format datetime {e}")
+        return date
+        
 def distribute_object(object_left: dict, object_right: dict) -> dict:
     """Insert object_right inside object_left
     

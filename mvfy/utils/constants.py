@@ -1,5 +1,5 @@
 import os
-from feature_flags import ENVIROMENT
+from .feature_flags import ENVIROMENT
 
 BASE_PROJECT = os.path.abspath(
     os.path.join(__file__, "../../..")
