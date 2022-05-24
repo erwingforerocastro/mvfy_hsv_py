@@ -14,8 +14,6 @@ class MetaUser(type):
             features,
             knowledge,
             frequency,
-            created_on,
-            modified_on,
             id):
 
         if not isinstance(system_id, (str)):
@@ -50,14 +48,6 @@ class MetaUser(type):
             raise ValueError(
                 f"Invalid frequency: {frequency}, must be a number, between o and 1")
 
-        if type(created_on) is not datetime.datetime and created_on is not None:
-            raise ValueError(
-                f"Invalid created_on: {created_on}, must be a datetime")
-
-        if type(modified_on) is not datetime.datetime and modified_on is not None:
-            raise ValueError(
-                f"Invalid modified_on: {modified_on}, must be a datetime")
-
         return super().__call__(system_id,
             author,
             detection,
@@ -66,8 +56,6 @@ class MetaUser(type):
             features,
             knowledge,
             frequency,
-            created_on,
-            modified_on,
             id)
 
 
@@ -82,8 +70,6 @@ class MetaSystem(type):
             features,
             type_system,
             title,
-            created_on,
-            modified_on,
             id):
 
         if not isinstance(type_service, (str)) or type_service not in TYPE_SERVICE.values():
@@ -93,7 +79,7 @@ class MetaSystem(type):
             raise ValueError(
                 f"Invalid max_descriptor_distance: {max_descriptor_distance}")
 
-        if not isinstance(min_date_knowledge, (list)):
+        if not isinstance(min_date_knowledge, (list, tuple)):
             raise ValueError(
                 f"Invalid min_date_knowledge: {min_date_knowledge}")
 
@@ -111,19 +97,11 @@ class MetaSystem(type):
 
         if not isinstance(type_system, (str)) or type_system not in TYPE_SYSTEM.values():
             raise ValueError(
-                f"Invalid type_system: {type_system}, must be a string")
+                f"Invalid type_system: {type_system}, must be a string or valid TYPE SYSTEM see insert link")
 
         if not isinstance(title, (str)):
             raise ValueError(
                 f"Invalid title: {title}, must be a string")
-
-        if type(created_on) is not datetime.datetime and created_on is not None:
-            raise ValueError(
-                f"Invalid created_on: {created_on}, must be a datetime")
-
-        if type(modified_on) is not datetime.datetime and modified_on is not None:
-            raise ValueError(
-                f"Invalid modified_on: {modified_on}, must be a datetime")
 
         return super().__call__(type_service,
                  max_descriptor_distance,
@@ -133,8 +111,6 @@ class MetaSystem(type):
                  features,
                  type_system,
                  title,
-                 created_on,
-                 modified_on,
                  id)
         
 
@@ -156,7 +132,7 @@ class User(metaclass=MetaUser):
                  frequency: int = 0,
                  created_on: datetime = datetime.now(),
                  modified_on: datetime = datetime.now(),
-                 id: str = "",
+                 id: str = None,
                  ) -> None:
 
         self.detection = detection
@@ -200,7 +176,7 @@ class System(metaclass=MetaSystem):
                  title: str,
                  created_on: datetime = datetime.now(),
                  modified_on: datetime = datetime.now(),
-                 id: str = "",
+                 id: str = None,
                  ) -> None:
 
         self.type_service = type_service
@@ -226,11 +202,12 @@ class System(metaclass=MetaSystem):
             "type_system": self. type_system,
             "id": self. id,
             "title": self. title,
-            "hash": self.get_hash(),
+            "hash": self.hash,
             "created_on": self. created_on,
             "modified_on": self. modified_on,
         }
-
-    def get_hash(self) -> str:
+    
+    @property
+    def hash(self) -> str:
         str2hash = f"{self.title}{self.type_system}"
         return hashlib.md5(str2hash.encode()).hexdigest()

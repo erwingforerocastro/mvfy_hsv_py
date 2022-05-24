@@ -11,6 +11,8 @@ numpy = "*"
 deepface = "*"
 apscheduler = "*"
 face-recognition = "*"
+python-socketio = "*"
+flask-socketio = "*"
 
 [dev-packages]
 autopep8 = "*"

@@ -12,38 +12,31 @@ class SystemDB(MongoDB):
     def find_by_id(self, id: str) -> 'dict':
 
         _id = ObjectId(id)
-        found = self.find_one(self.collection,{
+        found = self.find_one({
             "_id": _id
         })
 
         found["id"] = str(found.pop("_id"))
 
-        return found
+        return found 
 
-    def find_by_hash(self, hash: 'dict', **kargs) -> 'None|dict':
+    def find_by_hash(self, hash: 'str', **kargs) -> 'None|dict':
 
-        found = self.find_one(self.collection, {"hash": hash}, **kargs)
-
-        if found is None:
-            return None
-
-        found["id"] = str(found.pop("_id"))
-
-        return found
+        return self.find_one({"hash": hash}, **kargs)
 
     def insert_one(self, value: 'dict', **kargs) -> 'dict':
 
         if "id" in value.keys():
             value["_id"] = ObjectId(value.pop("id"))
 
-        insert = self.insert_one(self.collection, value, **kargs)
+        inserted_id = super().insert_one(self.collection, value, **kargs)
 
-        return self.find_one({"_id": insert.inserted_id})
+        return super().find_one(self.collection, {"_id": str(inserted_id)})
 
     def update_one(self, id: 'str', update: 'dict', **kargs) -> 'dict':
 
         _id = ObjectId(id)
-        updated = self.update_one(self.collection, {"_id": _id}, update, **kargs)
+        updated = super().update_one(self.collection, {"_id": _id}, update, **kargs)
 
         updated["id"] = str(updated.pop("_id"))
 
@@ -53,7 +46,7 @@ class SystemDB(MongoDB):
         if "id" in filter.values():
             filter["_id"] = ObjectId(filter.pop("id"))
 
-        found = self.find_one(self.collection, filter, **kargs)
+        found = super().find_one(self.collection, filter, **kargs)
 
         if found is None:
             return None
@@ -67,7 +60,7 @@ class SystemDB(MongoDB):
         if "id" in filter.values():
             filter["_id"] = ObjectId(filter.pop("id"))
 
-        self.delete_one(self.collection, filter, **kargs)
+        super().delete_one(self.collection, filter, **kargs)
         
 
 class UserDB(MongoDB):
@@ -79,7 +72,7 @@ class UserDB(MongoDB):
     def find_by_id(self, id: str) -> 'dict':
         
         _id = ObjectId(id)
-        found = self.find_one(self.collection,{
+        found = self.find_one({
             "_id": _id
         })
 
@@ -92,7 +85,7 @@ class UserDB(MongoDB):
         if "id" in filter.values():
             filter["_id"] = ObjectId(filter.pop("id"))
 
-        founds = self.find(self.collection, filter, **kargs)
+        founds = super().find(self.collection, filter, **kargs)
 
         if founds is None:
             return None
@@ -107,15 +100,15 @@ class UserDB(MongoDB):
         if "id" in value.values():
             value["_id"] = ObjectId(value.pop("id"))
 
-        result = self.insert_one(self.collection, value, **kargs)
+        inserted_id = super().insert_one(self.collection, value, **kargs)
 
-        return  self.find_one({"_id": result.inserted_id})
+        return  super().find_one(self.collection, {"_id": str(inserted_id)})
 
     def update_one(self, id: 'str', update: 'dict', **kargs) -> 'dict|None':
 
         _id = ObjectId(id)
 
-        updated = self.update_one(self.collection, {"_id": _id}, update, **kargs)
+        updated = super().update_one(self.collection, {"_id": _id}, update, **kargs)
         updated["id"] = str(updated.pop("_id"))
 
         return updated
@@ -124,7 +117,7 @@ class UserDB(MongoDB):
         if "id" in filter.values():
             filter["_id"] = ObjectId(filter.pop("id"))
 
-        found = self.find_one(self.collection, filter, **kargs)
+        found = super().find_one(self.collection, filter, **kargs)
         found["id"] = str(found.pop("_id"))
 
         return found
@@ -134,4 +127,4 @@ class UserDB(MongoDB):
         if "id" in filter.values():
             filter["_id"] = ObjectId(filter.pop("id"))
 
-        self.delete_one(self.collection, filter, **kargs)
+        super().delete_one(self.collection, filter, **kargs)

@@ -19,7 +19,7 @@ async def async_scheduler(job: 'function', trigger: CronTrigger, type: 'str' = "
 
     return _scheduler
     
-async def loop_manager(func: 'function') -> 'function':
+def loop_manager(func: 'function') -> 'function':
     """Decorator for Manage Event Loop.
 
     Args:
@@ -79,7 +79,7 @@ async def load_user_descriptors(system_id: str, db: UserDB, loop: 'asyncio.Abstr
 
     use_cases = UserUseCases(db)
 
-    results = await loop.run_until_complete(use_cases.get_users({
+    results = await loop.run_in_executor(None, lambda: use_cases.get_users({
         "system_id": system_id
     }))
 
@@ -99,7 +99,7 @@ async def get_system(system: 'dict', db: SystemDB, loop: 'asyncio.AbstractEventL
         dict: system found
     """
     use_cases = SystemUseCases(db)
-    result = await loop.run_until_complete(use_cases.get_system(system))
+    result = await loop.run_in_executor(None, lambda: use_cases.get_system(system))
 
     if result == [] or result is None:
         return None
@@ -114,7 +114,7 @@ async def insert_system(system: 'dict', db: SystemDB, loop: 'asyncio.AbstractEve
         str: id of system insert
     """
     use_cases = SystemUseCases(db)
-    result = await loop.run_until_complete(use_cases.add_system(system))
+    result = await loop.run_in_executor(None, lambda: use_cases.add_system(system))
 
     if result == [] or result is None:
         return None
@@ -129,7 +129,7 @@ async def insert_user(user: 'dict', db: UserDB, loop: 'asyncio.AbstractEventLoop
         str: id of user insert
     """
     use_cases = UserUseCases(db)
-    result = await loop.run_until_complete(use_cases.add_user(user))
+    result = await loop.run_in_executor(None, lambda: use_cases.add_user(user))
 
     if result == [] or result is None:
         return None
@@ -144,7 +144,7 @@ async def find_user(filter: 'dict', db: UserDB, loop: 'asyncio.AbstractEventLoop
         str: id of user insert
     """
     use_cases = UserUseCases(db)
-    result = await loop.run_until_complete(use_cases.get_user(filter))
+    result = await loop.run_in_executor(None, lambda: use_cases.get_user(filter))
 
     if result == [] or result is None:
         return None

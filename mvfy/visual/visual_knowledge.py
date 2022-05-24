@@ -28,7 +28,7 @@ class VisualKnowledge:
     min_frequency: float = 0.7,
     resize_factor: float = 0.25,
     features: list = [],
-    type_system: str = "OPTIMIZED",
+    type_system: str = const.TYPE_SYSTEM["OPTIMIZED"],
     title: str = None) -> None:
         
         """
@@ -51,7 +51,7 @@ class VisualKnowledge:
 
         """
         #properties
-        self.id = ""
+        self.id = None
         self.type_service = type_service
         self.title = str(uuid.uuid4()) if title is None else title
         self.features = features
@@ -94,10 +94,10 @@ class VisualKnowledge:
         # found or add system
         system = await func.get_system(self.get_obj(), self.db_systems)
         if system is None:
-            system = await func.insert_system(self.get_obj(), self.db_users)
+            system = await func.insert_system(self.get_obj(), self.db_systems)
             if system is None:
                 raise ValueError("Error to create or find system")
-
+        #insert system found in instance
         #get descriptors
         users_queue = await func.load_user_descriptors(
             system_id = self.id,
@@ -176,9 +176,8 @@ class VisualKnowledge:
             "min_frequency": self.min_frequency,
             "features": self.features,
             "type_system": self.type_system,
+            "resize_factor": self.resize_factor,
             "id": self.id,
-            "created_on": self.created_on,
-            "modified_on": self.modified_on,
         }
 
     async def start(self, cb: 'function' = None) -> None:
