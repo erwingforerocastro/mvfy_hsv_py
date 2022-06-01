@@ -1,3 +1,4 @@
+from typing import Iterable
 import cv2
 import socketio
 
@@ -6,7 +7,7 @@ class Receiver:
         pass
     
     @staticmethod
-    def ip_cam_receiver(ip_cam: 'str'):
+    def ip_cam_receiver(ip_cam: 'str') -> Iterable:
         def inside_function():
             stream = None
             try:
@@ -22,18 +23,18 @@ class Receiver:
                     try:
                         yield stream.read()
                         
-                        print(f"conecting.... {ip_cam}")
                         if stream is None:
+                            print(f"conecting.... {ip_cam}")
                             stream = cv2.VideoCapture(ip_cam)
-                    except:
+                    except Exception as e:
                         raise Exception(
                             f"Error in stream connection {e}")
 
             except Exception as e:
                 raise Exception(
-                    f"Error in conection to {ip_cam}, {e}")
+                    f"Error in connection to {ip_cam}, {e}")
 
-        return inside_function
+        return inside_function()
 
     @staticmethod
     def socket_receiver(server_socket: 'tuple|str', buffer_size: float = 1024):

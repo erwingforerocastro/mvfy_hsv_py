@@ -13,11 +13,11 @@ class Detector(ABC):
         self.encodings = []
 
     @abstractmethod
-    async def load_users(self):
+    async def load_users(self, *args, **kwargs):
         pass
 
     @abstractmethod
-    async def detect_unknowns(self):
+    async def detect_unknowns(self, *args, **kwargs):
         pass
 
 class FaceRecognition(Detector):

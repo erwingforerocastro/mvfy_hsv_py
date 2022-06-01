@@ -21,8 +21,8 @@ if __name__ == "__main__":
     )
 
     visual.set_conf(
-        detector=FaceRecognition,
-        receiver=Receiver.ip_cam_receiver(ip_cam="https://192.168.1.2:8080"),
+        detector=FaceRecognition(),
+        receiver=Receiver.ip_cam_receiver(ip_cam="rtsp://mvfysystem:mvfysystem@192.168.1.5:8080/h264_ulaw.sdp"),
         streamer=Streamer.stream_local
     )
     

@@ -217,6 +217,8 @@ class ThreadedGenerator():
                     logging.warning(f"{inspect.currentframe().f_code.co_name} Error inside function: \n {e}")
 
             self._queue.put(value)
+            
+        self._queue.put(self._sentinel)
         self._queue.task_done()
 
     def __iter__(self):
@@ -236,6 +238,6 @@ class ThreadedGenerator():
                 break
 
             yield value
-
+        
         self._thread.join()
 

@@ -182,12 +182,12 @@ class VisualKnowledge:
 
     async def start(self, cb: 'function' = None) -> None:
         
-        func.async_scheduler(job=self.__preload, trigger=self.cron_reload)
+        await func.async_scheduler(job=self.__preload, trigger=self.cron_reload)
 
         await self.__preload()
         
         while True: 
-            img = next(self.receiver())
+            _, img = next(self.receiver)
             if img is not None:
                 img_processed = await self.process_unknows(
                     img = img,
@@ -200,9 +200,9 @@ class VisualKnowledge:
                     cb(img)
 
             if ft.ENVIROMENT == "DEV":
-                sleep(secs=5)
+                sleep(5)
 
-    async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False, labels: tuple = ("Unknown" "Know"), features: list = []) -> 'np.array':
+    async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False, labels: tuple = ("Unknown", "Know"), features: list = []) -> 'np.array':
         """Process unknowns users.
 
         Args:
