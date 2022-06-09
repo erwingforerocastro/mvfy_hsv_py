@@ -8,7 +8,7 @@ import uuid
 from apscheduler.triggers.cron import CronTrigger
 from tzlocal import get_localzone
 
-from . import func
+from . import func, errors
 from datetime import datetime
 
 from data_access.visual_knowledge_db import SystemDB, UserDB
@@ -90,14 +90,22 @@ class VisualKnowledge:
         )
     
     async def __preload(self) -> None:
+        """
+            Load system and users if exist
 
+            Search the system or saved it
+            Search the users of the system
+        """
         # found or add system
         system = await func.get_system(self.get_obj(), self.db_systems)
         if system is None:
             system = await func.insert_system(self.get_obj(), self.db_systems)
             if system is None:
-                raise ValueError("Error to create or find system")
+                raise errors.SystemNotFoundError(str(self.db_systems))
+
         #insert system found in instance
+        self.__insert_system(system)
+
         #get descriptors
         users_queue = await func.load_user_descriptors(
             system_id = self.id,

@@ -8,7 +8,7 @@ class SystemDB(MongoDB):
     def __init__(self, properties: dict, db: str, collection: str = "systems") -> None:
         super().__init__(properties, db)
         self.collection = collection
-         
+
     def find_by_id(self, id: str) -> 'dict':
 
         _id = ObjectId(id)

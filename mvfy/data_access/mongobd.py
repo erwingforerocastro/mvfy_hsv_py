@@ -10,6 +10,9 @@ class MongoDB:
         self.url = self.client.address
         self.db = self.client[db]
 
+    def __str__(self) -> str:
+        return f"{self.url}"
+        
     def insert_one(self, collection: str, value: 'Any', **kargs) -> 'ObjectId': 
         _collect = self.db[collection]
 
