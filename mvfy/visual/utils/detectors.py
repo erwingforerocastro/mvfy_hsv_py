@@ -43,32 +43,41 @@ class FaceRecognition(Detector):
 
         for idx, face_encoding in enumerate(face_encodings):
             face_distances = face_recognition.face_distance(self.encodings, face_encoding)
-            best_match_index = np.argmin(face_distances)
+            if len(face_distances) > 0:
+                best_match_index = np.argmin(face_distances)
 
-            if face_distances[best_match_index] > min_descriptor_distance:
-                less_similar.append({
-                    "name": labels[0],
-                    "location": face_locations[idx],
-                    "distance": face_distances[best_match_index],
-                    "encoding": face_encoding,
-                    "features": await self.analyze(rgb_small_img, features) #pendiente
-                })
+                if face_distances[best_match_index] > min_descriptor_distance:
+                    less_similar.append({
+                        "name": labels[0],
+                        "location": face_locations[idx],
+                        "distance": face_distances[best_match_index],
+                        "encoding": face_encoding,
+                        "features": await self.analyze(rgb_small_img, features) #pendiente
+                    })
+                else:
+                    more_similar.append({
+                        "name": labels[1],
+                        "location": face_locations[idx],
+                        "distance": face_distances[best_match_index],
+                        "author": self.authors[best_match_index],
+                        "encoding": face_encoding,
+                        "features": await self.analyze(rgb_small_img, features)
+                    })
             else:
-                more_similar.append({
-                    "name": labels[1],
-                    "location": face_locations[idx],
-                    "distance": face_distances[best_match_index],
-                    "author": self.authors[best_match_index],
-                    "encoding": face_encoding,
-                    "features": await self.analyze(rgb_small_img, features)
-                })
-        
+                less_similar.append({
+                        "name": labels[0],
+                        "location": face_locations[idx],
+                        "distance": 0,
+                        "encoding": face_encoding,
+                        "features": await self.analyze(rgb_small_img, features) #pendiente
+                    })
+
         more_similar = utils.ThreadedGenerator(more_similar, daemon=True)
         less_similar = utils.ThreadedGenerator(less_similar, daemon=True)
 
         return more_similar, less_similar
     
-    async def analyze(img: np.array, features: list) -> dict:
+    async def analyze(self, img: np.array, features: list) -> dict:
         """Analyze img face detection
 
         Args:
@@ -80,7 +89,7 @@ class FaceRecognition(Detector):
         """
         result = {}
         try:
-            result = DeepFace.analyze(img, features)
+            result = DeepFace.analyze(img, features, enforce_detection=False, prog_bar=False)
         except Exception as e:
             logging.error(f"Detector - analyze - error to analyze img {e}")
 

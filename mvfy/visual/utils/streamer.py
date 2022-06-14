@@ -50,4 +50,6 @@ class Streamer():
     ) -> None:
             if size is not None:
                 img = cv2.resize(img, size)
+            cv2.startWindowThread()
             cv2.imshow(title, img)
+            cv2.waitKey(1)

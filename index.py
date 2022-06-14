@@ -22,8 +22,9 @@ if __name__ == "__main__":
 
     visual.set_conf(
         detector=FaceRecognition(),
-        receiver=Receiver.ip_cam_receiver(ip_cam="rtsp://mvfysystem:mvfysystem@192.168.1.5:8080/h264_ulaw.sdp"),
-        streamer=Streamer.stream_local
+        receiver=Receiver.ip_cam_receiver(ip_cam="rtsp://mvfysystem:mvfysystem@192.168.1.3:8080/h264_ulaw.sdp"),
+        streamer=Streamer.stream_local,
+        display_size = (1080, 720)
     )
     
     asyncio.run(visual.start())

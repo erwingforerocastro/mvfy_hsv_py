@@ -21,6 +21,7 @@ class Receiver:
 
                 while stream.isOpened():
                     try:
+                        
                         yield stream.read()
                         
                         if stream is None:

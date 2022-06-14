@@ -69,7 +69,7 @@ class VisualKnowledge:
 
         #more info
         self.type_model_detection = None
-        self.display_size = { "width": 720, "height": 720 }
+        self.display_size = (720, 720)
         self.matches = None
         self.interval_streaming = None
         self.execution = False
@@ -191,8 +191,6 @@ class VisualKnowledge:
     async def start(self, cb: 'function' = None) -> None:
         
         await func.async_scheduler(job=self.__preload, trigger=self.cron_reload)
-
-        await self.__preload()
         
         while True: 
             _, img = next(self.receiver)
@@ -203,10 +201,10 @@ class VisualKnowledge:
                     draw_label = self.draw_label,
                     features = self.features
                     )
-                await self.streamer(img = img_processed, size = None, title = self.title)
+                await self.streamer(img = img_processed, size = self.display_size, title = self.title)
                 if cb is not None:
                     cb(img)
-
+            
             if ft.ENVIROMENT == "DEV":
                 sleep(5)
 
