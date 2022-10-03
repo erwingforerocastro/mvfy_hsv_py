@@ -1,5 +1,5 @@
 import logging
-from ...utils import index as utils
+from ....utils import index as utils
 from abc import ABC, abstractmethod
 from typing import Iterable
 from deepface import DeepFace
@@ -89,7 +89,8 @@ class FaceRecognition(Detector):
         """
         result = {}
         try:
-            result = DeepFace.analyze(img, features, enforce_detection=False, prog_bar=False)
+            # result = DeepFace.analyze(img, features, enforce_detection=False, prog_bar=False)
+            pass
         except Exception as e:
             logging.error(f"Detector - analyze - error to analyze img {e}")
 

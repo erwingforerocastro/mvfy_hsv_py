@@ -1,3 +1,3 @@
-from .detectors import *
-from .receivers import *
-from .streamer import *
+from .detector.detectors import *
+from .receiver.receivers import *
+from .streamer.streamer import *

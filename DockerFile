@@ -1,11 +1,11 @@
 # image
 FROM python:3.9-slim
-LABEL maintainer="erwing.forero@xpertgroup.co"
+LABEL maintainer="erwingforerocastro@gmail.com"
 
 ENV TYPE_USE "CLI"
 
 # dir
-WORKDIR /budget-app
+WORKDIR /mvfy
 
 # Paste all project
 COPY . .
@@ -15,4 +15,4 @@ RUN pip install --upgrade pip && \
     pip --no-cache-dir install -r requirements.txt
 
 # execute project
-CMD ["python", "budget/main.py"]
+CMD ["python", "mvfy/main.py"]
