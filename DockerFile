@@ -1,6 +1,6 @@
 # image
 FROM python:3.9-slim
-LABEL maintainer="erwingforerocastro@gmail.com"
+LABEL maintainer = "erwingforerocastro@gmail.com"
 
 ENV TYPE_USE "CLI"
 

@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from flask import Flask, render_template
 from mvfy.visual import VisualKnowledge
 from mvfy.visual.utils import FlaskStreamer, Receiver, FaceRecognition
@@ -33,14 +34,13 @@ streamer = FlaskStreamer(image_generator = visual)
 
 @app.route("/")
 def index():
+    threading.Thread(target = streamer.start).start()
     return render_template(streamer.url_template)
 
-@app.route("/")
-def index():
-    return render_template(streamer.url_template)
+@app.route("/stream")
+async def index():
+    return await streamer.get_frame()
 
 if __name__ == "__main__":
-
-    
     
     asyncio.run(streamer)

@@ -16,6 +16,10 @@ class Streamer(BaseModel, ABC):
     @abstractmethod
     def start(self) -> None:
         pass 
+    
+    @abstractmethod
+    def get_frame(self) -> None:
+        pass 
 
 class FlaskStreamer(Streamer):
 
@@ -49,19 +53,12 @@ class FlaskStreamer(Streamer):
                 
                 if not flag:
                     self.image = buffer
+                    await self.images_queue.put(self.image)
             
-            await self.__save()
-            yield await self.__send()
-            
-
-    async def __save(self) -> None:
-
-        await self.images_queue.put(self.image)
-
-    async def __send(self) -> None:
+    async def get_frame(self) -> None:
 
         frame: bytearray = await self.images_queue.get()
-        images_bites: bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
+        images_bytes: bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
         self.images_queue.task_done()
 
-        return Response(images_bites, mimetype="multipart/x-mixed-replace; boundary=frame")
+        return Response(images_bytes, mimetype="multipart/x-mixed-replace; boundary=frame")

@@ -1,11 +1,15 @@
+from abc import ABC, abstractmethod
 import asyncio
 import logging
+from queue import Queue
 from threading import Thread
 from time import sleep
+from typing import Iterable, Optional
 import cv2
 import numpy as np
 import uuid
 from apscheduler.triggers.cron import CronTrigger
+from pydantic.dataclasses import dataclass
 from tzlocal import get_localzone
 
 from . import func, errors
@@ -16,51 +20,62 @@ from .utils import Detector, Streamer
 from ..utils import constants as const, index as utils, feature_flags as ft
 
 
+class ImageGenerator(ABC):
 
-class VisualKnowledge:
+    wait_message: Optional[str] = "wait"
+    __images_queue: Queue = Queue()
+    __wait_image: Optional[np.array] = None
+    
+    @abstractmethod
+    def __aiter__(self) -> None:
+        pass
+    
+    def set_wait_image(self) -> None:
 
-    def __init__(self,
-    type_service: 'str',
-    db_properties: dict,
-    db_name: str,
-    max_descriptor_distance: float,
-    min_date_knowledge: float,
-    min_frequency: float = 0.7,
-    resize_factor: float = 0.25,
-    features: list = [],
-    type_system: str = const.TYPE_SYSTEM["OPTIMIZED"],
-    title: str = None) -> None:
-        
-        """
-        Main model builder
+        if self.__wait_image is None:
+            self.__wait_image = np.zeros([h,w,1],dtype=np.uint8)
+            center_image = (self.__wait_image.shape[0] // 2, self.__wait_image.shape[1] // 2)
 
-        constructor
-        :Parameters:
-            {String} type_service - type of the listen server.
-            {Dict} db - proprties of bd see https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient.
-            {String} db_name - name of db to be used.
-            {Array} min_date_knowledge [min_date_knowledge=null] - minimum interval to determine a known user.
-            {Number} min_frequency [min_frequency=0.7] - minimum frequency between days detectioned.
-            {list} features [features=null] - characteristics that will be saved in each detection.
-            {String} max_descriptor_distance [max_descriptor_distance=null] - max distance of diference between detections.
-            {String} type_system [type_system=null] - type of system.
-            {String} title [title=null] - title of system.
+        cv2.putText(image,"wait", center_image, cv2.CV_FONT_HERSHEY_SIMPLEX, 2, 255)
 
-        :Returns:
-            None.
+@dataclass
+class VisualKnowledge(ImageGenerator):
 
-        """
+    type_service: str
+    db_properties: dict
+    db_name: str
+    max_descriptor_distance: float
+    min_date_knowledge: float
+    min_frequency: Optional[float] = 0.7
+    resize_factor: Optional[float] = 0.25
+    features: Optional[list] = [],
+    type_system: Optional[str] = const.TYPE_SYSTEM["OPTIMIZED"],
+    title: Optional[str] = str(uuid.uuid4())
+
+    """
+    Main model builder
+
+    constructor
+    :Parameters:
+        {String} type_service - type of the listen server.
+        {Dict} db - proprties of bd see https://pymongo.readthedocs.io/en/stable/api/pymongo/mongo_client.html#pymongo.mongo_client.MongoClient.
+        {String} db_name - name of db to be used.
+        {Array} min_date_knowledge [min_date_knowledge=null] - minimum interval to determine a known user.
+        {Number} min_frequency [min_frequency=0.7] - minimum frequency between days detectioned.
+        {list} features [features=null] - characteristics that will be saved in each detection.
+        {String} max_descriptor_distance [max_descriptor_distance=null] - max distance of diference between detections.
+        {String} type_system [type_system=null] - type of system.
+        {String} title [title=null] - title of system.
+
+    :Returns:
+        None.
+
+    """
+    def __post_init__(self):
+
         #properties
         self.id = None
-        self.type_service = type_service
-        self.title = str(uuid.uuid4()) if title is None else title
-        self.features = features
-        self.min_date_knowledge = min_date_knowledge
-        self.min_frequency = min_frequency
-        self.max_descriptor_distance = max_descriptor_distance
-        self.type_system = type_system
-        self.resize_factor = resize_factor
-        
+
         #agents 
         self.detector = None
         self.receiver = None
@@ -79,16 +94,27 @@ class VisualKnowledge:
 
         #DB
         self.db_systems = SystemDB(
-            properties = db_properties,
-            db = db_name,
+            properties = self.db_properties,
+            db = self.db_name,
             collection = const.COLLECTIONS["SYSTEMS"]
         )
         self.db_users = UserDB(
-            properties = db_properties,
-            db = db_name,
+            properties = self.db_properties,
+            db = self.db_name,
             collection = const.COLLECTIONS["USERS"]
         )
     
+    def __aiter__(self) -> Iterable:
+      return self
+    
+    async def __anext__(self) -> np.array:
+
+        if self.__images_queue.empty():
+            self.set_wait_image()
+        
+        image: np.array = await self.__images_queue.get()
+
+
     async def __preload(self) -> None:
         """
             Load system and users if exist
