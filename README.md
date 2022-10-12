@@ -3,41 +3,21 @@
 **Python face recognition library for detection of unknows in a closed system**
 
 
-## Tutorials
+# Tutorials
 
-* **[face-api.js — JavaScript API for Face Recognition in the Browser with tensorflow.js](https://itnext.io/face-api-js-javascript-api-for-face-recognition-in-the-browser-with-tensorflow-js-bcc2a6c4cf07)**
+* **[basic example](https://www.google.com)**
 
-## Table of Contents
-
-* **[Features](#features)**
-* **[Running the Examples](#running-the-examples)**
-* **[face-api.js for the Browser](#face-api.js-for-the-browser)**
-* **[face-api.js for Nodejs](#face-api.js-for-nodejs)**
-* **[Usage](#getting-started)**
-  * **[Loading the Models](#getting-started-loading-models)**
-  * **[High Level API](#high-level-api)**
-  * **[Displaying Detection Results](#getting-started-displaying-detection-results)**
-  * **[Face Detection Options](#getting-started-face-detection-options)**
-  * **[Utility Classes](#getting-started-utility-classes)**
-  * **[Other Useful Utility](#other-useful-utility)**
-* **[Available Models](#models)**
-  * **[Face Detection](#models-face-detection)**
-  * **[Face Landmark Detection](#models-face-landmark-detection)**
-  * **[Face Recognition](#models-face-recognition)**
-  * **[Face Expression Recognition](#models-face-expression-recognition)**
-  * **[Age Estimation and Gender Recognition](#models-age-and-gender-recognition)**
-* **[API Documentation](https://justadudewhohacks.github.io/face-api.js/docs/globals.html)**
 
 # Features
 
+## Detection of Unknows
 
-## Face Expression Recognition
+![detector-unknows](https://user-images.githubusercontent.com/92807219/194922510-7348e07a-d893-428f-a94f-ea8dc3bc16ed.png)
 
-![preview_face-expression-recognition](https://user-images.githubusercontent.com/31125521/50575270-f501d080-0dfb-11e9-9676-8f419efdade4.png)
+## Face Recognition
 
-## Age Estimation & Gender Recognition
+![detector-face-recognition](https://cloud.githubusercontent.com/assets/896692/24430398/36f0e3f0-13cb-11e7-8258-4d0c9ce1e419.gif)
 
-![age_gender_recognition](https://user-images.githubusercontent.com/31125521/57297736-b5603380-70d0-11e9-873d-8b6c7243eb64.jpg)
 
 <a name="running-the-examples"></a>
 
@@ -58,104 +38,65 @@ python main.py
 
 <a name="mvfy-for-the-browser"></a>
 
-# mvfy-visual instalation
+## Installation
 
-Simply include the latest version inside a mvfy/visual.
+### Requirements
 
-Or install it via pip:
+  * Python 3.7+
+  * macOS or Linux (Windows not officially supported, but might work)
 
-``` bash
-pip install mvfy-visual
+### Installation Options:
+
+#### Installing on Mac or Linux
+
+First, make sure you have dlib already installed with Python bindings:
+
+  * [How to install dlib from source on macOS or Ubuntu](https://gist.github.com/ageitgey/629d75c1baac34dfa5ca2a1928a7aeaf)
+  
+Then, make sure you have cmake installed:  
+ 
+```brew install cmake```
+
+Finally, install this module from pypi:
+
+```bash
+pip install mvfy_visual
 ```
+
+Alternatively, you can try this library with [Docker](https://www.docker.com/), see [this section](#deployment).
+
+If you are having trouble with installation, you can also try out a
+[pre-configured VM](https://medium.com/@ageitgey/try-deep-learning-in-python-now-with-a-fully-pre-configured-vm-1d97d4c3e9b).
+
+#### Installing on an Nvidia Jetson Nano board
+
+ * [Jetson Nano installation instructions](https://medium.com/@ageitgey/build-a-hardware-based-face-recognition-system-for-150-with-the-nvidia-jetson-nano-and-python-a25cb8c891fd)
+   * Please follow the instructions in the article carefully. There is current a bug in the CUDA libraries on the Jetson Nano that will cause this library to fail silently if you don't follow the instructions in the article to comment out a line in dlib and recompile it.
+
+#### Installing on Raspberry Pi 2+
+
+  * [Raspberry Pi 2+ installation instructions](https://gist.github.com/ageitgey/1ac8dbe8572f3f533df6269dab35df65)
+
+
+#### Installing on Windows
+
+#### Required for OpenCv
+
+  * For run OpenCv sometimes you need [this](https://perso.uclouvain.be/allan.barrea/opencv/building_tools.html) building tools. 
+
+#### Installing visual studio
+
+  * [Download visual studio](https://visualstudio.microsoft.com/es/c3e9b) (optional).
 
 # Getting Started
 
 <a name="getting-started-loading-models"></a>
 
-## Loading the Models
-
-All global neural network instances are exported via faceapi.nets:
-
-``` javascript
-console.log(faceapi.nets)
-// ageGenderNet
-// faceExpressionNet
-// faceLandmark68Net
-// faceLandmark68TinyNet
-// faceRecognitionNet
-// ssdMobilenetv1
-// tinyFaceDetector
-// tinyYolov2
-```
-
-To load a model, you have to provide the corresponding manifest.json file as well as the model weight files (shards) as assets. Simply copy them to your public or assets folder. The manifest.json and shard files of a model have to be located in the same directory / accessible under the same route.
-
-Assuming the models reside in **public/models**:
-
-``` javascript
-await faceapi.nets.ssdMobilenetv1.loadFromUri('/models')
-// accordingly for the other models:
-// await faceapi.nets.faceLandmark68Net.loadFromUri('/models')
-// await faceapi.nets.faceRecognitionNet.loadFromUri('/models')
-// ...
-```
-
-In a nodejs environment you can furthermore load the models directly from disk:
-
-``` javascript
-await faceapi.nets.ssdMobilenetv1.loadFromDisk('./models')
-```
-
-You can also load the model from a tf.NamedTensorMap:
-
-``` javascript
-await faceapi.nets.ssdMobilenetv1.loadFromWeightMap(weightMap)
-```
-
-Alternatively, you can also create own instances of the neural nets:
-
-``` javascript
-const net = new faceapi.SsdMobilenetv1()
-await net.loadFromUri('/models')
-```
-
-You can also load the weights as a Float32Array (in case you want to use the uncompressed models):
-
-``` javascript
-// using fetch
-net.load(await faceapi.fetchNetWeights('/models/face_detection_model.weights'))
-
-// using axios
-const res = await axios.get('/models/face_detection_model.weights', { responseType: 'arraybuffer' })
-const weights = new Float32Array(res.data)
-net.load(weights)
-```
-
-<a name="getting-high-level-api"></a>
-
-## High Level API
-
-In the following **input** can be an HTML img, video or canvas element or the id of that element.
-
-``` html
-<img id="myImg" src="images/example.png" />
-<video id="myVideo" src="media/example.mp4" />
-<canvas id="myCanvas" />
-```
-
-``` javascript
-const input = document.getElementById('myImg')
-// const input = document.getElementById('myVideo')
-// const input = document.getElementById('myCanvas')
-// or simply:
-// const input = 'myImg'
-```
-
-### Detecting Faces
+### Detecting Unknows
 
 Detect all faces in an image. Returns **Array<[FaceDetection](#interface-face-detection)>**:
 
-``` javascript
+``` python
 const detections = await faceapi.detectAllFaces(input)
 ```
 

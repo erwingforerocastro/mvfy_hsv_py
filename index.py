@@ -1,9 +1,11 @@
 import asyncio
 import threading
+
 from flask import Flask, render_template
-from mvfy.visual import VisualKnowledge
-from mvfy.visual.utils import FlaskStreamer, Receiver, FaceRecognition
+
 from mvfy.utils import constants as const
+from mvfy.visual import VisualKnowledge
+from mvfy.visual.utils import FlaskStreamer, Receiver, DetectorUnknows
 
 app = Flask(__name__)
 
@@ -12,22 +14,21 @@ features = [
     const.ALLOWED_FEATURES["GENDER"]
 ]
 visual = VisualKnowledge(
-    type_service=const.TYPE_SERVICE["LOCAL"],
+    receiver= Receiver.ip_cam_receiver(
+    ip_cam = "rtsp://mvfysystem:mvfysystem@192.168.1.11:8080/h264_ulaw.sdp"),
+    detector = DetectorUnknows,
+    type_service = const.TYPE_SERVICE["LOCAL"],
     db_properties="mongodb://localhost:27017/",
     db_name="mvfy",
     max_descriptor_distance=0.7,
     min_date_knowledge=const.DAYS(7),
-    type_system=const.TYPE_SYSTEM["OPTIMIZED"],
+    type_system = const.TYPE_SYSTEM["OPTIMIZED"],
     features=features,
     title="mvfy_1"
 )
 
 visual.set_conf(
-    detector=FaceRecognition(),
-    receiver=Receiver.ip_cam_receiver(
-        ip_cam="rtsp://mvfysystem:mvfysystem@192.168.1.6:8080/h264_ulaw.sdp"),
-    streamer=Streamer.stream_local,
-    display_size=(1080, 720)
+    display_size = (720, 480)
 )
 
 streamer = FlaskStreamer(image_generator = visual)
@@ -38,9 +39,10 @@ def index():
     return render_template(streamer.url_template)
 
 @app.route("/stream")
-async def index():
+async def stream():
     return await streamer.get_frame()
 
 if __name__ == "__main__":
     
     asyncio.run(streamer)
+    app.run(host='0.0.0.0', port = 8001, debug=True)

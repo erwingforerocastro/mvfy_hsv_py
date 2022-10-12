@@ -5,7 +5,7 @@ import logging
 from queue import Queue
 from threading import Thread
 from time import strptime
-from typing import Iterable, Iterator
+from typing import Any, Callable, Iterable, Iterator
 
 def get_actual_date(format: str) -> datetime:
     """Get the actual date from a given format.
@@ -177,9 +177,9 @@ class ThreadedGenerator():
     """
 
     def __init__(self, 
-        iterator: Iterator,
-        daemon=False,
-        Thread=Thread,
+        iterator: Iterable,
+        daemon = False,
+        Thread = Thread,
         sentinel: 'Any' = None,
         queue=Queue):
 
@@ -193,7 +193,7 @@ class ThreadedGenerator():
         self._thread.daemon = daemon
         self._cb = None
 
-    def insert_action(self, cb: 'function', args=()):
+    def insert_action(self, cb: 'Callable', args=()):
         """Add a callback to the intance.
 
         Args:
@@ -213,8 +213,8 @@ class ThreadedGenerator():
             if self._cb is not None:
                 try:
                     value = self._cb(value)
-                except Exception as e:
-                    logging.warning(f"{inspect.currentframe().f_code.co_name} Error inside function: \n {e}")
+                except Exception as err:
+                    logging.warning(f"{inspect.currentframe().f_code.co_name} Error inside function: \n {err}")
 
             self._queue.put(value)
             

@@ -1,46 +1,61 @@
-from abc import ABC, abstractmethod
 import asyncio
 import logging
+import uuid
+from abc import ABC, abstractmethod
+from datetime import datetime
 from queue import Queue
 from threading import Thread
 from time import sleep
-from typing import Iterable, Optional
+from typing import Any, Callable, Iterable, Optional, Tuple
+
 import cv2
+from mvfy.visual.utils.receiver.receivers import Receiver
 import numpy as np
-import uuid
 from apscheduler.triggers.cron import CronTrigger
+from data_access.visual_knowledge_db import SystemDB, UserDB
 from pydantic.dataclasses import dataclass
 from tzlocal import get_localzone
 
-from . import func, errors
-from datetime import datetime
-
-from data_access.visual_knowledge_db import SystemDB, UserDB
+from ..utils import constants as const
+from ..utils import feature_flags as ft
+from ..utils import index as utils
+from . import errors, func
 from .utils import Detector, Streamer
-from ..utils import constants as const, index as utils, feature_flags as ft
 
 
+@dataclass
 class ImageGenerator(ABC):
 
+    dimensions: Tuple[int, int] = (720, 720)
     wait_message: Optional[str] = "wait"
+    wait_image: Optional[np.array] = None
     __images_queue: Queue = Queue()
-    __wait_image: Optional[np.array] = None
     
+    def __post_init__(self) -> None:
+        self.create_wait_image()
+
     @abstractmethod
     def __aiter__(self) -> None:
         pass
     
-    def set_wait_image(self) -> None:
+    def create_wait_image(self) -> None:
+        """_summary_
+        """
+        if self.wait_image is None:
+            self.wait_image = np.zeros([*self.dimensions, 1], dtype = np.uint8)
 
-        if self.__wait_image is None:
-            self.__wait_image = np.zeros([h,w,1],dtype=np.uint8)
-            center_image = (self.__wait_image.shape[0] // 2, self.__wait_image.shape[1] // 2)
+        center_image = (self.wait_image.shape[0] // 2, self.wait_image.shape[1] // 2)
+        self.wait_image = cv2.putText(self.wait_image, self.wait_message, center_image, cv2.CV_FONT_HERSHEY_SIMPLEX, 2, 255)
 
-        cv2.putText(image,"wait", center_image, cv2.CV_FONT_HERSHEY_SIMPLEX, 2, 255)
-
+    async def put_wait_image(self) -> None:
+        
+        await self.__images_queue.put(self.wait_image)
+    
 @dataclass
 class VisualKnowledge(ImageGenerator):
 
+    detector: Detector
+    receiver: Receiver
     type_service: str
     db_properties: dict
     db_name: str
@@ -48,8 +63,8 @@ class VisualKnowledge(ImageGenerator):
     min_date_knowledge: float
     min_frequency: Optional[float] = 0.7
     resize_factor: Optional[float] = 0.25
-    features: Optional[list] = [],
-    type_system: Optional[str] = const.TYPE_SYSTEM["OPTIMIZED"],
+    features: Optional[list] = []
+    type_system: Optional[str] = const.TYPE_SYSTEM["OPTIMIZED"]
     title: Optional[str] = str(uuid.uuid4())
 
     """
@@ -77,8 +92,6 @@ class VisualKnowledge(ImageGenerator):
         self.id = None
 
         #agents 
-        self.detector = None
-        self.receiver = None
         self.streamer = None
         self.stream_fps = 30
 
@@ -104,16 +117,18 @@ class VisualKnowledge(ImageGenerator):
             collection = const.COLLECTIONS["USERS"]
         )
     
-    def __aiter__(self) -> Iterable:
+    def __aiter__(self) -> Any:
+
       return self
     
     async def __anext__(self) -> np.array:
 
         if self.__images_queue.empty():
-            self.set_wait_image()
+            await self.put_wait_image()
         
         image: np.array = await self.__images_queue.get()
 
+        yield image
 
     async def __preload(self) -> None:
         """
@@ -139,7 +154,7 @@ class VisualKnowledge(ImageGenerator):
         )
 
         #load descriptors
-        self.detector.load_users(users = users_queue)
+        self.detector.authors =  users_queue
 
     def __get_cron_trigger(self) -> CronTrigger:
         """get crontrigger of now every day
@@ -167,28 +182,16 @@ class VisualKnowledge(ImageGenerator):
         self.resize_factor = system["resize_factor"] if system["resize_factor"] is not None else self.resize_factor
 
     def set_conf(self, 
-    receiver: 'function',
-    detector: 'Detector',
-    streamer: 'Streamer',
-    stream_fps: float = 30,
-    display_size: dict = None,
-    date_format: str = None,
-    draw_label: bool = None,
-    cron_reload: CronTrigger = None,
+    display_size: Optional[dict] = None,
+    date_format: Optional[str] = None,
+    draw_label: Optional[bool] = None,
+    cron_reload: Optional[CronTrigger] = None,
     ) -> None:
         """Set configuration parameters for this instance .
 
         Args:
-            receiver (function): provider of streaming video
-            detector (Detector): face detector 
-            streamer (Streamer): send result of streaming video
-            stream_fps (float, optional): frame per second inside video. Defaults to 30.
             display_size (dict, optional): size of image process. Defaults to None.
         """
-        self.receiver = receiver
-        self.detector = detector
-        self.streamer = streamer
-        self.stream_fps = stream_fps
 
         #more info
         self.display_size = display_size if display_size is not None else self.display_size
@@ -214,41 +217,38 @@ class VisualKnowledge(ImageGenerator):
             "id": self.id,
         }
 
-    async def start(self, cb: 'function' = None) -> None:
+    async def start(self) -> None:
         
-        await func.async_scheduler(job=self.__preload, trigger=self.cron_reload)
+        await func.async_scheduler(job = self.__preload, trigger = self.cron_reload)
         
-        while True: 
+        while True:
+
             _, img = next(self.receiver)
             if img is not None:
                 img_processed = await self.process_unknows(
                     img = img,
                     resize_factor = self.resize_factor,
-                    draw_label = self.draw_label,
-                    features = self.features
+                    draw_label = self.draw_label
                     )
-                await self.streamer(img = img_processed, size = self.display_size, title = self.title)
-                if cb is not None:
-                    cb(img)
             
             if ft.ENVIROMENT == "DEV":
                 sleep(5)
 
-    async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False, labels: tuple = ("Unknown", "Know"), features: list = []) -> 'np.array':
+            await self.__images_queue.put(img_processed)
+
+    async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False) -> 'np.array':
         """Process unknowns users.
 
         Args:
             img (np.array): img with faces
             resize_factor (float, optional): resize image to acelerate process. Defaults to 0.25.
             draw_label (bool, optional): draw labels over the faces. Defaults to False.
-            labels (tuple, optional): labels for unknown users and know users. Defaults to ("Unknown" "Know").
-            features (list, optional): list of features to save see utils.constants. Defaults to [].
 
         Returns:
             np.array: img
         """
         
-        more_similar, less_similar = await self.detector.detect_unknowns(img, (1 - self.max_descriptor_distance), resize_factor, labels, features)
+        more_similar, less_similar = await self.detector.detect(img)
 
         # Display the results
         return_size = 1 / resize_factor

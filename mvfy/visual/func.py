@@ -2,6 +2,7 @@ import asyncio
 from asyncio import Queue, Task
 from datetime import datetime
 import logging
+from typing import Callable
 import uuid
 from entities.visual_knowledge_entities import System
 from data_access.visual_knowledge_db import SystemDB, UserDB
@@ -21,7 +22,7 @@ async def async_scheduler(job: 'function', trigger: CronTrigger, type: 'str' = "
 
     return _scheduler
     
-def loop_manager(func: 'function') -> 'function':
+def loop_manager(func: 'function') -> 'Callable':
     """Decorator for Manage Event Loop.
 
     Args:

@@ -7,12 +7,15 @@ name = "pypi"
 opencv-python = "*"
 numpy = "*"
 flask = "*"
-flask-socketio = "*"
 attrs = "*"
 pydantic = "*"
 face-recognition = "*"
+pymongo = "*"
+apscheduler = "*"
+pillow = "*"
 
 [dev-packages]
+pylint = "*"
 
 [requires]
 python_version = "3.9"

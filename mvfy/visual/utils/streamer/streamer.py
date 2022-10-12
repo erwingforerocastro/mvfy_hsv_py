@@ -1,16 +1,18 @@
 import os
-import cv2
-from typing import Optional, Tuple
 from abc import ABC, abstractmethod
-from flask import Response
-from pydantic import BaseModel
 from queue import Queue
+from typing import Optional, Tuple
+
+import cv2
+from flask import Response
 from mvfy.visual.utils.streamer.errors import StreamTemplateNotFound
-from visual.utils import constants
+from mvfy.visual.visual_knowledge import ImageGenerator
+from pydantic import BaseModel
+
 
 class Streamer(BaseModel, ABC):
     image_generator: ImageGenerator
-    image: Optional[Array] = None
+    image: Optional[list] = None
     images_queue: Queue = Queue(30)
 
     @abstractmethod
@@ -28,7 +30,12 @@ class FlaskStreamer(Streamer):
     
     @property
     def url_template(self) -> str:
+        """_summary_
 
+        :raises StreamTemplateNotFound: _description_
+        :return: _description_
+        :rtype: str
+        """        
         dir_name: str = os.path.dirname(os.path.abspath(__file__))
         template_file: str = os.path.join(dir_name, "stream_flask_template.html")
         
@@ -38,7 +45,8 @@ class FlaskStreamer(Streamer):
         return template_file
         
     async def start(self)-> None:
-
+        """_summary_
+        """        
         while True:
 
             image = self.image_generator()
@@ -56,7 +64,11 @@ class FlaskStreamer(Streamer):
                     await self.images_queue.put(self.image)
             
     async def get_frame(self) -> None:
+        """_summary_
 
+        :return: _description_
+        :rtype: _type_
+        """        
         frame: bytearray = await self.images_queue.get()
         images_bytes: bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
         self.images_queue.task_done()
