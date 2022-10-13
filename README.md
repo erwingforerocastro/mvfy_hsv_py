@@ -88,6 +88,19 @@ If you are having trouble with installation, you can also try out a
 
   * [Download visual studio](https://visualstudio.microsoft.com/es/c3e9b) (optional).
 
+#### Installing Face Recognition
+
+```bash
+  git clone https://github.com/RvTechiNNovate/face_recog_dlib_file.git
+  cd face_recog_dlib_file
+```
+```bash
+  Python 3.7:
+  pip install dlib-19.19.0-cp37-cp37m-win_amd64.whl
+
+  Python 3.8:
+  pip install dlib-19.19.0-cp38-cp38-win_amd64.whl
+```
 # Getting Started
 
 <a name="getting-started-loading-models"></a>

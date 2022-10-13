@@ -1,35 +1,38 @@
+import asyncio
 import os
 from abc import ABC, abstractmethod
-from queue import Queue
-from typing import Optional, Tuple
+from multiprocessing import Queue
+from typing import Any, Optional, Tuple
 
 import cv2
 from flask import Response
-from mvfy.visual.utils.streamer.errors import StreamTemplateNotFound
-from mvfy.visual.visual_knowledge import ImageGenerator
-from pydantic import BaseModel
+from mvfy.visual.generator.image_generator import ImageGenerator
+from pydantic.dataclasses import dataclass
+
+from .errors import StreamTemplateNotFound
 
 
-class Streamer(BaseModel, ABC):
+@dataclass
+class Streamer(ABC):
     image_generator: ImageGenerator
     image: Optional[list] = None
-    images_queue: Queue = Queue(30)
+    images_queue: Optional[Any] = None
 
     @abstractmethod
-    def start(self) -> None:
+    async def start(self) -> None:
         pass 
     
     @abstractmethod
     def get_frame(self) -> None:
         pass 
 
+@dataclass
 class FlaskStreamer(Streamer):
 
-    resize: Optional[Tuple[int, int]]
     extension: Optional[str] = ".jpg"
-    
-    @property
-    def url_template(self) -> str:
+    resize: Optional[Tuple[int, int]] = None
+
+    def get_template(self) -> str:
         """_summary_
 
         :raises StreamTemplateNotFound: _description_
@@ -37,19 +40,22 @@ class FlaskStreamer(Streamer):
         :rtype: str
         """        
         dir_name: str = os.path.dirname(os.path.abspath(__file__))
-        template_file: str = os.path.join(dir_name, "stream_flask_template.html")
+        template_path: str = os.path.join(dir_name, "stream_flask_template.html")
         
-        if not os.path.exists(template_file):
-            raise StreamTemplateNotFound(path_file = template_file)
+        if not os.path.exists(template_path):
+            raise StreamTemplateNotFound(path_file = template_path)
         
-        return template_file
+        with open(template_path, "r", encoding = "utf-8") as f:
+            template = f.read()
+
+        return template
         
     async def start(self)-> None:
         """_summary_
         """        
-        while True:
+        self.images_queue: Queue = Queue()
 
-            image = self.image_generator()
+        for image in self.image_generator:
 
             if image is not None:
 
@@ -61,15 +67,15 @@ class FlaskStreamer(Streamer):
                 
                 if not flag:
                     self.image = buffer
-                    await self.images_queue.put(self.image)
+                    self.images_queue.put_nowait(self.image)
             
-    async def get_frame(self) -> None:
+    def get_frame(self) -> None:
         """_summary_
 
         :return: _description_
         :rtype: _type_
         """        
-        frame: bytearray = await self.images_queue.get()
+        frame: bytearray = asyncio.run(self.images_queue.get())
         images_bytes: bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
         self.images_queue.task_done()
 

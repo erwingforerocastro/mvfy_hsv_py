@@ -1,69 +1,41 @@
-import asyncio
 import logging
 import uuid
-from abc import ABC, abstractmethod
 from datetime import datetime
-from queue import Queue
-from threading import Thread
 from time import sleep
-from typing import Any, Callable, Iterable, Optional, Tuple
+from typing import Any, Optional
 
 import cv2
-from mvfy.visual.utils.receiver.receivers import Receiver
 import numpy as np
 from apscheduler.triggers.cron import CronTrigger
+from pydantic import Field
 from data_access.visual_knowledge_db import SystemDB, UserDB
-from pydantic.dataclasses import dataclass
+from mvfy.visual import func
+from mvfy.visual.detector import Detector
+from mvfy.visual.generator.image_generator import ImageGenerator
+from mvfy.visual.receiver.receivers import Receiver
+from mvfy.visual.streamer import Streamer
+from dataclasses import dataclass
 from tzlocal import get_localzone
+from utils import constants as const
+from utils import feature_flags as ft
+from utils import index as utils
 
-from ..utils import constants as const
-from ..utils import feature_flags as ft
-from ..utils import index as utils
-from . import errors, func
-from .utils import Detector, Streamer
+from . import errors
 
 
-@dataclass
-class ImageGenerator(ABC):
-
-    dimensions: Tuple[int, int] = (720, 720)
-    wait_message: Optional[str] = "wait"
-    wait_image: Optional[np.array] = None
-    __images_queue: Queue = Queue()
-    
-    def __post_init__(self) -> None:
-        self.create_wait_image()
-
-    @abstractmethod
-    def __aiter__(self) -> None:
-        pass
-    
-    def create_wait_image(self) -> None:
-        """_summary_
-        """
-        if self.wait_image is None:
-            self.wait_image = np.zeros([*self.dimensions, 1], dtype = np.uint8)
-
-        center_image = (self.wait_image.shape[0] // 2, self.wait_image.shape[1] // 2)
-        self.wait_image = cv2.putText(self.wait_image, self.wait_message, center_image, cv2.CV_FONT_HERSHEY_SIMPLEX, 2, 255)
-
-    async def put_wait_image(self) -> None:
-        
-        await self.__images_queue.put(self.wait_image)
-    
 @dataclass
 class VisualKnowledge(ImageGenerator):
 
-    detector: Detector
-    receiver: Receiver
-    type_service: str
-    db_properties: dict
-    db_name: str
-    max_descriptor_distance: float
-    min_date_knowledge: float
+    detector: Optional[Detector] = None 
+    receiver: Optional[Receiver] = None
+    type_service: Optional[str] = None
+    db_properties: Optional[dict] = None
+    db_name: Optional[str] = None
+    max_descriptor_distance: Optional[float] = None
+    min_date_knowledge: Optional[float] = None
     min_frequency: Optional[float] = 0.7
     resize_factor: Optional[float] = 0.25
-    features: Optional[list] = []
+    features: Optional[list] = Field(default_factory = list)
     type_system: Optional[str] = const.TYPE_SYSTEM["OPTIMIZED"]
     title: Optional[str] = str(uuid.uuid4())
 
@@ -123,10 +95,10 @@ class VisualKnowledge(ImageGenerator):
     
     async def __anext__(self) -> np.array:
 
-        if self.__images_queue.empty():
+        if self.images_queue.empty():
             await self.put_wait_image()
         
-        image: np.array = await self.__images_queue.get()
+        image: np.array = await self.images_queue.get()
 
         yield image
 
@@ -234,7 +206,7 @@ class VisualKnowledge(ImageGenerator):
             if ft.ENVIROMENT == "DEV":
                 sleep(5)
 
-            await self.__images_queue.put(img_processed)
+            await self.images_queue.put(img_processed)
 
     async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False) -> 'np.array':
         """Process unknowns users.

@@ -1,6 +1,6 @@
 
 class SystemNotFoundError(Exception):
-    def __init__(self, db, *args: object) -> None:
+    def __init__(self, db: str, *args: object) -> None:
         super().__init__(*args)
         self.db = db
 

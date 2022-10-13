@@ -13,6 +13,9 @@ face-recognition = "*"
 pymongo = "*"
 apscheduler = "*"
 pillow = "*"
+cmake = "*"
+deepface = "*"
+aioflask = "*"
 
 [dev-packages]
 pylint = "*"

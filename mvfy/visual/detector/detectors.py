@@ -1,22 +1,21 @@
-import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Tuple
+from typing import Optional, Tuple
 
 import cv2
 import face_recognition
 import numpy as np
 from cv2 import Mat
-from deepface import DeepFace
+from pydantic import Field
 
-from ....utils import index as utils
+from utils import index as utils
 
 
 @dataclass
 class Detector(ABC):
 
-    authors: list = []
-    encodings: list = []
+    authors: list = Field(default_factory=list)
+    encodings: list = Field(default_factory=list)
     resize_factor: Optional[float] = 0.25
 
     @abstractmethod
@@ -31,7 +30,7 @@ class DetectorUnknows(Detector):
 
     labels: tuple = ("Unknown", "Know")
     min_descriptor_distance: Optional[float] = 0.6
-    actual_img: Optional[np.array] = np.array([])
+    actual_img: np.array = np.array([])
 
     async def detect(self, image: Mat) -> Tuple[utils.ThreadedGenerator, utils.ThreadedGenerator]:
         """Detect unkwnows in image
