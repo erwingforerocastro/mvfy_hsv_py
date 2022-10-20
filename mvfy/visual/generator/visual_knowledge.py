@@ -1,8 +1,11 @@
+import asyncio
 import logging
+from queue import Queue
+import threading
 import uuid
 from datetime import datetime
 from time import sleep
-from typing import Any, Optional
+from typing import Any, Callable, Optional
 
 import cv2
 import numpy as np
@@ -38,6 +41,7 @@ class VisualKnowledge(ImageGenerator):
     features: Optional[list] = Field(default_factory = list)
     type_system: Optional[str] = const.TYPE_SYSTEM["OPTIMIZED"]
     title: Optional[str] = str(uuid.uuid4())
+    delay: int = 30
 
     """
     Main model builder
@@ -69,7 +73,6 @@ class VisualKnowledge(ImageGenerator):
 
         #more info
         self.type_model_detection = None
-        self.display_size = (720, 720)
         self.matches = None
         self.interval_streaming = None
         self.execution = False
@@ -88,10 +91,16 @@ class VisualKnowledge(ImageGenerator):
             db = self.db_name,
             collection = const.COLLECTIONS["USERS"]
         )
+
+        self.images_queue: Queue = Queue()
+
+        threading.Thread(target = self.start).start()
+
+        sleep(self.delay) 
     
     def __aiter__(self) -> Any:
 
-      return self
+        return self
     
     async def __anext__(self) -> np.array:
 
@@ -109,6 +118,7 @@ class VisualKnowledge(ImageGenerator):
             Search the system or saved it
             Search the users of the system
         """
+        print("reloading system...")
         # found or add system
         system = await func.get_system(self.get_obj(), self.db_systems)
         if system is None:
@@ -153,20 +163,22 @@ class VisualKnowledge(ImageGenerator):
         self.type_system = system["type_system"] if system["type_system"] is not None else self.type_system
         self.resize_factor = system["resize_factor"] if system["resize_factor"] is not None else self.resize_factor
 
-    def set_conf(self, 
-    display_size: Optional[dict] = None,
+    def set_conf(self,
     date_format: Optional[str] = None,
     draw_label: Optional[bool] = None,
     cron_reload: Optional[CronTrigger] = None,
     ) -> None:
-        """Set configuration parameters for this instance .
+        """_summary_
 
-        Args:
-            display_size (dict, optional): size of image process. Defaults to None.
+        :param date_format: _description_, defaults to None
+        :type date_format: Optional[str], optional
+        :param draw_label: _description_, defaults to None
+        :type draw_label: Optional[bool], optional
+        :param cron_reload: _description_, defaults to None
+        :type cron_reload: Optional[CronTrigger], optional
         """
 
         #more info
-        self.display_size = display_size if display_size is not None else self.display_size
         self.date_format = date_format if date_format is not None else self.date_format
         self.draw_label = draw_label if draw_label is not None else self.draw_label
         self.cron_reload = cron_reload if cron_reload is not None else self.cron_reload
@@ -193,27 +205,28 @@ class VisualKnowledge(ImageGenerator):
         
         await func.async_scheduler(job = self.__preload, trigger = self.cron_reload)
         
-        while True:
+        images_receiver: Callable = self.receiver.start()
 
-            _, img = next(self.receiver)
-            if img is not None:
+        while True:
+            ret, img = next(images_receiver)
+
+            if ret:
+                # img = img[:, :, ::-1]  # BGR to RBG
                 img_processed = await self.process_unknows(
                     img = img,
-                    resize_factor = self.resize_factor,
                     draw_label = self.draw_label
                     )
-            
+
+                self.images_queue.put(img_processed, block = False)
+
             if ft.ENVIROMENT == "DEV":
                 sleep(5)
 
-            await self.images_queue.put(img_processed)
-
-    async def process_unknows(self, img: np.array, resize_factor: float = 0.25, draw_label: bool = False) -> 'np.array':
+    async def process_unknows(self, img: np.array, draw_label: bool = False) -> 'np.array':
         """Process unknowns users.
 
         Args:
             img (np.array): img with faces
-            resize_factor (float, optional): resize image to acelerate process. Defaults to 0.25.
             draw_label (bool, optional): draw labels over the faces. Defaults to False.
 
         Returns:
@@ -222,17 +235,9 @@ class VisualKnowledge(ImageGenerator):
         
         more_similar, less_similar = await self.detector.detect(img)
 
-        # Display the results
-        return_size = 1 / resize_factor
-
         for detection in less_similar:
                 
             (top, right, bottom, left) = detection["location"]
-            # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-            top *= return_size
-            right *= return_size
-            bottom *= return_size
-            left *= return_size
 
             # Draw a box around the face
             cv2.rectangle(img, (left, top), (right, bottom), (0, 0, 255), 2)
@@ -287,7 +292,7 @@ class VisualKnowledge(ImageGenerator):
 
             prev_days = utils.frequency(total = self.min_date_knowledge[0], percentage = 1, value = self.frequency, invert = True) 
             user.last_date = utils.get_actual_date(self.date_format)
-            user.frequency = utils.frequency(self.min_date_knowledge[0], 1, prev_days + 1) 
+            user.frequency = utils.frequency(self.min_date_knowledge[0], 1, prev_days + 1)  
 
         return await func.update_user({
             **user,

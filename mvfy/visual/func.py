@@ -12,12 +12,11 @@ from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
 from use_cases.visual_knowledge_cases import UserUseCases
 from ..utils import index as utils
 
-async def async_scheduler(job: 'function', trigger: CronTrigger, type: 'str' = "cron", *kargs) -> None:
+async def async_scheduler(job: 'Callable', trigger: CronTrigger, type: 'str' = "cron", *kargs) -> None:
 
     _scheduler = AsyncIOScheduler()
     _scheduler.add_job(job, 
-    trigger=trigger if trigger is None else type, 
-    id=str(uuid.uuid4()), *kargs)
+    trigger = trigger if trigger is None else type, id=str(uuid.uuid4()), *kargs)
     _scheduler.start()
 
     return _scheduler

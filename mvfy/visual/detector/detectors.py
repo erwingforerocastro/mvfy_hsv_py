@@ -43,7 +43,7 @@ class DetectorUnknows(Detector):
         """
         self.actual_img = image
 
-        self.redim_image()
+        self.reduce_dimensions_image()
         face_locations = face_recognition.face_locations(self.actual_img)
         face_encodings = []
 
@@ -61,7 +61,7 @@ class DetectorUnknows(Detector):
                 if face_distances[best_match_index] > self.min_descriptor_distance:
                     less_similar.append({
                         "name": self.labels[0],
-                        "location": face_locations[idx],
+                        "location": self.enlarge_dimensions(face_locations[idx]),
                         "distance": face_distances[best_match_index],
                         "encoding": face_encoding,
                         "features": []
@@ -69,7 +69,7 @@ class DetectorUnknows(Detector):
                 else:
                     more_similar.append({
                         "name": self.labels[1],
-                        "location": face_locations[idx],
+                        "location": self.enlarge_dimensions(face_locations[idx]),
                         "distance": face_distances[best_match_index],
                         "author": self.authors[best_match_index],
                         "encoding": face_encoding,
@@ -88,14 +88,29 @@ class DetectorUnknows(Detector):
         less_similar = utils.ThreadedGenerator(less_similar, daemon=True)
 
         return more_similar, less_similar
-        
-    def redim_image(self) -> None:
+    
+    def enlarge_dimensions(self, location: Tuple[int, ...]) -> Tuple[int, ...]:
+        """
+        Enlarges the location to the image size"""
 
+        return_size = 1 / self.resize_factor
+        (top, right, bottom, left) = location
+
+        # Scale back up face locations since the frame we detected in was scaled to 1/4 size
+        top *= return_size
+        right *= return_size
+        bottom *= return_size
+        left *= return_size
+
+        return top, right, bottom, left
+
+    def reduce_dimensions_image(self) -> None:
+        """
+        Resizes the image to less dimensions"""
         self.actual_img = cv2.resize(
             self.actual_img, 
-            disize = (0, 0), 
+            dsize = (0, 0), 
             fx = self.resize_factor, 
             fy = self.resize_factor)
 
-        self.actual_img = self.actual_img[:, :, ::-1]  # BGR to RBG
     

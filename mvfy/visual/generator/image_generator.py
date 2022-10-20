@@ -13,7 +13,7 @@ class ImageGenerator(ABC):
     dimensions: Tuple[int, int] = (720, 480)
     wait_message: Optional[str] = "wait"
     wait_image: Any = None
-    images_queue: Queue = Queue()
+    images_queue: Any = None
     
     class Config:
         arbitrary_types_allowed = True
@@ -21,10 +21,6 @@ class ImageGenerator(ABC):
     def __post_init__(self) -> None:
         self.create_wait_image()
 
-    @abstractmethod
-    def __aiter__(self) -> None:
-        pass
-    
     def create_wait_image(self) -> None:
         """_summary_
         """
@@ -37,3 +33,7 @@ class ImageGenerator(ABC):
     async def put_wait_image(self) -> None:
         
         await self.images_queue.put(self.wait_image)
+        
+    @abstractmethod
+    def __aiter__(self) -> None:
+        pass

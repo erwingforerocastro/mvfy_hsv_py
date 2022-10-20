@@ -55,7 +55,7 @@ class FlaskStreamer(Streamer):
         """        
         self.images_queue: Queue = Queue()
 
-        for image in self.image_generator:
+        for image in await self.image_generator:
 
             if image is not None:
 
@@ -67,16 +67,16 @@ class FlaskStreamer(Streamer):
                 
                 if not flag:
                     self.image = buffer
-                    self.images_queue.put_nowait(self.image)
+                    print("saving image...")
+                    await self.images_queue.put(self.image)
             
-    def get_frame(self) -> None:
+    def get_frame(self) -> Response:
         """_summary_
 
         :return: _description_
         :rtype: _type_
         """        
-        frame: bytearray = asyncio.run(self.images_queue.get())
+        frame: bytearray = self.images_queue.get_nowait()
         images_bytes: bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
-        self.images_queue.task_done()
 
         return Response(images_bytes, mimetype="multipart/x-mixed-replace; boundary=frame")

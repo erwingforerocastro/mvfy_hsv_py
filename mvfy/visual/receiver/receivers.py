@@ -1,8 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Iterable, Union
+from typing import Iterable, Tuple, Union
 
 import cv2
 from pydantic.dataclasses import dataclass
+from . import errors
+from mvfy.utils import constants
 
 
 class Receiver(ABC):
@@ -10,14 +12,14 @@ class Receiver(ABC):
         pass
     
     @abstractmethod
-    def start(self) -> None:
+    def start(self) -> Iterable :
         pass
     
-
 @dataclass
 class ReceiverIpCam(Receiver):
 
     ip_cam: str
+    dimensions: Tuple[int, int] = constants.IMAGE_DIMENSIONS
 
     def start(self) -> Iterable:
         def inside_function():
@@ -27,27 +29,26 @@ class ReceiverIpCam(Receiver):
                 if stream is None:
                     stream = cv2.VideoCapture(self.ip_cam)
                 print("init the capture of image")
-
+                
                 if stream is None:
-                    raise Exception("Stream error")
+                    raise errors.FailedConnectionWithRSTP(self.ip_cam)
 
                 while stream.isOpened():
                     try:
-                        
                         yield stream.read()
                         
                         if stream is None:
-                            print(f"conecting.... {self.ip_cam}")
+                            print(f"reconecting.... {self.ip_cam}")
                             stream = cv2.VideoCapture(self.ip_cam)
-                    except Exception as e:
-                        raise Exception(
-                            f"Error in stream connection {e}")
 
-            except Exception as e:
-                raise Exception(
-                    f"Error in connection to {self.ip_cam}, {e}")
+                    except Exception as error:
+                        raise Exception(f"Error in stream connection {error}")
+
+            except Exception as error:
+                raise Exception(f"Error in connection to {self.ip_cam}, {error}")
 
         return inside_function()
+    
 
 class ReceiverSocket(Receiver):
     """

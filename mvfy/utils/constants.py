@@ -11,6 +11,7 @@ ACQUAINTANCES_URL = os.path.join(BASE_PROJECT, 'acquaintances_url')
 MODELS_URL = os.path.join(BASE_PROJECT, 'src/mvfy/models')
 CONFIG_URL = os.path.join(BASE_PROJECT, 'config')
 PORT = 3000 if (v:=os.getenv("PORT")) is None else v
+IMAGE_DIMENSIONS = (720, 480)
 
 #static
 COLLECTIONS: Dict[str, str] = {
@@ -55,7 +56,6 @@ HTML_STREAMER: Dict[str, str] = {
 
 # time
 DATE_FORMAT: str = "DD/MM/YYYY"
-
         
 def DAYS (quantity: int) -> Tuple[int, str]:
     quantity = int(quantity)
