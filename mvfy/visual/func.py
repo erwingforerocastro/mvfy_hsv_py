@@ -1,5 +1,5 @@
 import asyncio
-from asyncio import Queue, Task
+from asyncio import AbstractEventLoop, Queue, Task
 from datetime import datetime
 import logging
 from typing import Callable
@@ -21,7 +21,7 @@ async def async_scheduler(job: 'Callable', trigger: CronTrigger, type: 'str' = "
 
     return _scheduler
     
-def loop_manager(func: 'function') -> 'Callable':
+def loop_manager(func: 'Callable') -> 'Callable':
     """Decorator for Manage Event Loop.
 
     Args:
@@ -35,7 +35,7 @@ def loop_manager(func: 'function') -> 'Callable':
         if loop is None:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
-        return await func(*args, **kargs, loop=loop)
+        return await func(*args, **kargs, loop = loop)
         
     return wrapper_function
 

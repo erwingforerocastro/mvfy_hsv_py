@@ -1,11 +1,13 @@
 
+import asyncio
 from datetime import datetime
 import inspect
 import logging
 from queue import Queue
 from threading import Thread
+import threading
 from time import strptime
-from typing import Any, Callable, Iterable, Iterator
+from typing import Any, Callable, Coroutine, Iterable, Iterator, Tuple
 
 def get_actual_date(format: str) -> datetime:
     """Get the actual date from a given format.
@@ -166,6 +168,18 @@ def frequency(total: float, percentage: float, value: float, invert: bool = Fals
         float: frequency result
     """
     return (value * total) / percentage if invert is True else (value * percentage) / total
+
+def run_async_in_thread(coroutine: Coroutine) -> Thread:
+    """Run a coroutine in a thread.
+    Args:
+        coroutine (Coroutine): coroutine to run"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    thread = threading.Thread(target = loop.run_until_complete, args = (coroutine, ))
+    thread.start()
+
+    return thread
 
 #------------------------------------------------------------------------------- CLASES ----------------------------------------------------------------------------------------
 

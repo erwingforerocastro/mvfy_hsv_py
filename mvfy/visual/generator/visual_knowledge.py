@@ -1,27 +1,25 @@
 import asyncio
 import logging
-from queue import Queue
-import threading
+import time
 import uuid
+from asyncio import Queue
+from dataclasses import dataclass
 from datetime import datetime
-from time import sleep
 from typing import Any, Callable, Optional
 
 import cv2
 import numpy as np
 from apscheduler.triggers.cron import CronTrigger
-from pydantic import Field
 from data_access.visual_knowledge_db import SystemDB, UserDB
+from pydantic import Field
+from tzlocal import get_localzone
+from utils import constants as const, index as utils
+
 from mvfy.visual import func
 from mvfy.visual.detector import Detector
 from mvfy.visual.generator.image_generator import ImageGenerator
 from mvfy.visual.receiver.receivers import Receiver
 from mvfy.visual.streamer import Streamer
-from dataclasses import dataclass
-from tzlocal import get_localzone
-from utils import constants as const
-from utils import feature_flags as ft
-from utils import index as utils
 
 from . import errors
 
@@ -29,8 +27,9 @@ from . import errors
 @dataclass
 class VisualKnowledge(ImageGenerator):
 
-    detector: Optional[Detector] = None 
+    detector: Optional[Detector] = None
     receiver: Optional[Receiver] = None
+    streamer: Optional[Streamer] = None
     type_service: Optional[str] = None
     db_properties: Optional[dict] = None
     db_name: Optional[str] = None
@@ -67,14 +66,7 @@ class VisualKnowledge(ImageGenerator):
         #properties
         self.id = None
 
-        #agents 
-        self.streamer = None
-        self.stream_fps = 30
-
         #more info
-        self.type_model_detection = None
-        self.matches = None
-        self.interval_streaming = None
         self.execution = False
         self.date_format = const.DATE_FORMAT
         self.draw_label = True
@@ -94,25 +86,27 @@ class VisualKnowledge(ImageGenerator):
 
         self.images_queue: Queue = Queue()
 
-        threading.Thread(target = self.start).start()
-
-        sleep(self.delay) 
+        self._thread = utils.run_async_in_thread(self.start())
     
-    def __aiter__(self) -> Any:
+    def __iter__(self):
+        
+        while self.images_queue.empty():
+            print("waiting video-cam...")
+            time.sleep(1)
 
         return self
     
-    async def __anext__(self) -> np.array:
-
-        if self.images_queue.empty():
-            await self.put_wait_image()
+    def __next__(self):
         
-        image: np.array = await self.images_queue.get()
+        _image = self.wait_image
 
-        yield image
+        if not self.images_queue.empty():
+            _image = asyncio.run(self.images_queue.get())
+
+        return self.streamer.send(_image)
 
     async def __preload(self) -> None:
-        """
+        """ 
             Load system and users if exist
 
             Search the system or saved it
@@ -208,6 +202,7 @@ class VisualKnowledge(ImageGenerator):
         images_receiver: Callable = self.receiver.start()
 
         while True:
+
             ret, img = next(images_receiver)
 
             if ret:
@@ -217,10 +212,7 @@ class VisualKnowledge(ImageGenerator):
                     draw_label = self.draw_label
                     )
 
-                self.images_queue.put(img_processed, block = False)
-
-            if ft.ENVIROMENT == "DEV":
-                sleep(5)
+                await self.put_image(img_processed)
 
     async def process_unknows(self, img: np.array, draw_label: bool = False) -> 'np.array':
         """Process unknowns users.

@@ -1,21 +1,19 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 import cv2
 import face_recognition
 import numpy as np
 from cv2 import Mat
-from pydantic import Field
-
 from utils import index as utils
 
 
 @dataclass
 class Detector(ABC):
 
-    authors: list = Field(default_factory=list)
-    encodings: list = Field(default_factory=list)
+    authors: list = field(default_factory=list)
+    encodings: list = field(default_factory=list)
     resize_factor: Optional[float] = 0.25
 
     @abstractmethod
@@ -83,7 +81,7 @@ class DetectorUnknows(Detector):
                     "encoding": face_encoding,
                     "features": []
                 })
-
+        
         more_similar = utils.ThreadedGenerator(more_similar, daemon=True)
         less_similar = utils.ThreadedGenerator(less_similar, daemon=True)
 

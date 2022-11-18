@@ -1,29 +1,21 @@
-import asyncio
 import os
+import time
 from abc import ABC, abstractmethod
-from multiprocessing import Queue
-from typing import Any, Optional, Tuple
+from asyncio import Queue
+from typing import Any, Generator, Optional, Tuple
 
 import cv2
-from flask import Response
+from flask import render_template_string
 from mvfy.visual.generator.image_generator import ImageGenerator
 from pydantic.dataclasses import dataclass
 
 from .errors import StreamTemplateNotFound
 
 
-@dataclass
 class Streamer(ABC):
-    image_generator: ImageGenerator
-    image: Optional[list] = None
-    images_queue: Optional[Any] = None
 
     @abstractmethod
-    async def start(self) -> None:
-        pass 
-    
-    @abstractmethod
-    def get_frame(self) -> None:
+    async def send(self, image: Any)-> bytes:
         pass 
 
 @dataclass
@@ -31,6 +23,7 @@ class FlaskStreamer(Streamer):
 
     extension: Optional[str] = ".jpg"
     resize: Optional[Tuple[int, int]] = None
+    framerate: int = 30
 
     def get_template(self) -> str:
         """_summary_
@@ -48,35 +41,21 @@ class FlaskStreamer(Streamer):
         with open(template_path, "r", encoding = "utf-8") as f:
             template = f.read()
 
-        return template
+        return render_template_string(template, title = "mvfy_visual")
         
-    async def start(self)-> None:
-        """_summary_
-        """        
-        self.images_queue: Queue = Queue()
-
-        for image in await self.image_generator:
-
-            if image is not None:
-
-                if self.resize is not None:
-
-                    image = cv2.resize(image, self.resize)
-
-                flag, buffer = cv2.imencode(self.extension, image, [cv2.IMWRITE_JPEG_QUALITY, 80])
-                
-                if not flag:
-                    self.image = buffer
-                    print("saving image...")
-                    await self.images_queue.put(self.image)
-            
-    def get_frame(self) -> Response:
+  
+    def send(self, image: Any)-> bytes:
         """_summary_
 
         :return: _description_
         :rtype: _type_
-        """        
-        frame: bytearray = self.images_queue.get_nowait()
-        images_bytes: bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n'
+        """       
+        #TODO: optimize the fluency of the video
+            
+        flag, resize_image = cv2.imencode(self.extension, image, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
-        return Response(images_bytes, mimetype="multipart/x-mixed-replace; boundary=frame")
+        if flag:
+            time.sleep(1 / self.framerate)
+            images_bytes: bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + bytearray(resize_image) + b'\r\n'
+            return images_bytes
+        

@@ -21,13 +21,14 @@ class ReceiverIpCam(Receiver):
     ip_cam: str
     dimensions: Tuple[int, int] = constants.IMAGE_DIMENSIONS
 
-    def start(self) -> Iterable:
-        def inside_function():
+    def start(self) -> callable:
+        def inside_function() -> Iterable:
             stream = None
             try:
                 print(f"conecting.... {self.ip_cam}")
                 if stream is None:
                     stream = cv2.VideoCapture(self.ip_cam)
+                    
                 print("init the capture of image")
                 
                 if stream is None:
@@ -40,7 +41,10 @@ class ReceiverIpCam(Receiver):
                         if stream is None:
                             print(f"reconecting.... {self.ip_cam}")
                             stream = cv2.VideoCapture(self.ip_cam)
-
+                    
+                    except StopIteration:
+                        print(f"reconecting.... {self.ip_cam}")
+                        stream = cv2.VideoCapture(self.ip_cam)
                     except Exception as error:
                         raise Exception(f"Error in stream connection {error}")
 
