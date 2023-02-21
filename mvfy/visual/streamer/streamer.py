@@ -1,3 +1,4 @@
+import logging
 import os
 import time
 from abc import ABC, abstractmethod
@@ -51,11 +52,17 @@ class FlaskStreamer(Streamer):
         :rtype: _type_
         """       
         #TODO: optimize the fluency of the video
-            
-        flag, resize_image = cv2.imencode(self.extension, image, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        
+        try:
+            flag = False
+            if image is not None:
+                flag, resize_image = cv2.imencode(self.extension, image, [cv2.IMWRITE_JPEG_QUALITY, 80])
 
-        if flag:
-            time.sleep(1 / self.framerate)
-            images_bytes: bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + bytearray(resize_image) + b'\r\n'
-            return images_bytes
+            if flag:
+                time.sleep(1 / self.framerate)
+                images_bytes: bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + bytearray(resize_image) + b'\r\n'
+                return images_bytes
+        except Exception as error:
+            logging.error(f"Error sending the image, {error}")
+        
         

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Optional
 from utils.constants import TYPE_SERVICE, TYPE_SYSTEM
 import numpy as np
 import hashlib
@@ -14,7 +15,8 @@ class MetaUser(type):
             features,
             knowledge,
             frequency,
-            id):
+            *args,
+            **kwds):
 
         if not isinstance(system_id, (str)):
             raise ValueError(
@@ -24,15 +26,15 @@ class MetaUser(type):
             raise ValueError(
                 f"Invalid author: {author}, must be a string")
 
-        if not type(detection) == type(np.float64):
+        if not isinstance(detection, list):
             raise ValueError(
                 f"Invalid detection: {detection}, must be a np.float64")
 
-        if not type(init_date) is datetime.datetime:
+        if not type(init_date) is datetime:
             raise ValueError(
                 f"Invalid init_date: {init_date}, must be a datetime")
 
-        if not type(last_date) is datetime.datetime:
+        if not type(last_date) is datetime:
             raise ValueError(
                 f"Invalid last_date: {last_date}, must be a datetime")
 
@@ -44,11 +46,12 @@ class MetaUser(type):
             raise ValueError(
                 f"Invalid knowledge: {knowledge}, must be a dictionary")
 
-        if not isinstance(frequency, (np.number, int, float)) or frequency <= 0 or frequency > 1 or frequency is not None:
+        if not isinstance(frequency, (np.number, int, float)) or frequency < 0 or frequency > 1 or frequency is None:
             raise ValueError(
-                f"Invalid frequency: {frequency}, must be a number, between o and 1")
+                f"Invalid frequency: {frequency}, must be a number, between 0 and 1")
 
-        return super().__call__(system_id,
+        return super().__call__(
+            system_id,
             author,
             detection,
             init_date,
@@ -56,7 +59,8 @@ class MetaUser(type):
             features,
             knowledge,
             frequency,
-            id)
+            *args,
+            **kwds)
 
 
 class MetaSystem(type):
@@ -70,7 +74,9 @@ class MetaSystem(type):
             features,
             type_system,
             title,
-            id):
+            id,
+            *args,
+            **kwds):
 
         if not isinstance(type_service, (str)) or type_service not in TYPE_SERVICE.values():
             raise ValueError(f"Invalid type_service: {type_service}")
@@ -124,7 +130,7 @@ class User(metaclass=MetaUser):
     def __init__(self,
                  system_id: str,
                  author: str,
-                 detection: 'np.float64',
+                 detection: list,
                  init_date: datetime,
                  last_date: datetime,
                  features: dict = {},
@@ -150,7 +156,7 @@ class User(metaclass=MetaUser):
     def get_obj(self) -> dict:
         return {
             "detection": self.detection,
-            "properties": self.properties,
+            "features": self.features,
             "init_date": self.init_date,
             "last_date": self.last_date,
             "knowledge": self.knowledge,
@@ -203,8 +209,8 @@ class System(metaclass=MetaSystem):
             "id": self. id,
             "title": self. title,
             "hash": self.hash,
-            "created_on": self. created_on,
-            "modified_on": self. modified_on,
+            "created_on": self.created_on,
+            "modified_on": self.modified_on,
         }
     
     @property

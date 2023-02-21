@@ -12,11 +12,8 @@ from mvfy.visual.streamer import FlaskStreamer
 
 app = Flask(__name__)
 
-features = [const.ALLOWED_FEATURES["AGE"], const.ALLOWED_FEATURES["GENDER"]]
-
 receiver = ReceiverIpCam(ip_cam="rtsp://mvfy:mvfy@192.168.1.4:8080/h264_ulaw.sdp")
 detector = DetectorUnknows()
-
 streamer = FlaskStreamer()
 
 visual = VisualKnowledge(
@@ -29,7 +26,7 @@ visual = VisualKnowledge(
     max_descriptor_distance=0.7,
     min_date_knowledge=const.DAYS(7),
     type_system=const.TYPE_SYSTEM["OPTIMIZED"],
-    features=features,
+    features=[],
     title="mvfy_1",
 )
 
@@ -45,4 +42,4 @@ def stream_video() -> Response:
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8001)
+    app.run(host="0.0.0.0", port=8001, debug=True)

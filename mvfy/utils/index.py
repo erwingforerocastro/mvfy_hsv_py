@@ -6,10 +6,16 @@ import logging
 from queue import Queue
 from threading import Thread
 import threading
-from time import strptime
-from typing import Any, Callable, Coroutine, Iterable, Iterator, Tuple
+from typing import Any, Callable, Coroutine, Iterable
 
-def get_actual_date(format: str) -> datetime:
+import numpy as np
+from utils.constants import DATE_FORMAT
+
+def euclidean_distance(x_1: np.array, x_2: np.array) -> np.float64:
+
+    return np.sqrt(np.sum((x_1-x_2)**2))
+
+def get_actual_date(format: str) -> str:
     """Get the actual date from a given format.
 
     Args:
@@ -20,10 +26,10 @@ def get_actual_date(format: str) -> datetime:
     """
     date = datetime.now()
     try:
-        return datetime.strptime(date, format) if format is not None else date
+        return date.strftime(format) if format is not None else str(date)
     except Exception as e:
         logging.error(f"get_actual_date - Error to format datetime {e}")
-        return date
+        return str(date)
         
 def distribute_object(object_left: dict, object_right: dict) -> dict:
     """Insert object_right inside object_left
@@ -137,7 +143,7 @@ def get_date_diff_so_far(date: datetime, _type: str = "days") -> float:
     Returns:
         float: difference between "date" and now
     """
-    date_now = get_actual_date()
+    date_now = datetime.now()
     if date is not None:
         res = None
         if _type == "days":
@@ -215,10 +221,10 @@ class ThreadedGenerator():
             args (tuple, optional): args. Defaults to ().
 
         """
-        self._cb = ( lambda value: cb(value, *args) ) if args == () else ( lambda value: cb(value) )
+        self._cb = lambda value: cb(value, *args)
 
     def __repr__(self):
-        return 'ThreadedGenerator({!r})'.format(self._iterator)
+        return f"ThreadedGenerator({self._iterator})"
 
     def _run(self):
         """Execute queue put process
@@ -242,7 +248,7 @@ class ThreadedGenerator():
             Any: value in the queue
         """
         self._thread.start()
-        end = 0
+        end = -1
 
         for value in iter(self._queue.get, self._sentinel):
             if value != self._sentinel:
@@ -252,6 +258,7 @@ class ThreadedGenerator():
                 break
 
             yield value
+
         
         self._thread.join()
 

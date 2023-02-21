@@ -49,6 +49,7 @@ class ReceiverIpCam(Receiver):
                         raise Exception(f"Error in stream connection {error}")
 
             except Exception as error:
+                
                 raise Exception(f"Error in connection to {self.ip_cam}, {error}")
 
         return inside_function()

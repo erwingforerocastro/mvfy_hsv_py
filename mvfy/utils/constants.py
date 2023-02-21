@@ -55,7 +55,7 @@ HTML_STREAMER: Dict[str, str] = {
 }
 
 # time
-DATE_FORMAT: str = "DD/MM/YYYY"
+DATE_FORMAT: str = "%d/%m/%Y %H:%M:%S"
         
 def DAYS (quantity: int) -> Tuple[int, str]:
     quantity = int(quantity)

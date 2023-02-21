@@ -1,22 +1,36 @@
 import asyncio
+import logging
+import uuid
 from asyncio import AbstractEventLoop, Queue, Task
 from datetime import datetime
-import logging
 from typing import Callable
-import uuid
-from entities.visual_knowledge_entities import System
-from data_access.visual_knowledge_db import SystemDB, UserDB
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
+import numpy as np
+from data_access.visual_knowledge_db import SystemDB, UserDB
+from entities.visual_knowledge_entities import System
 from use_cases.visual_knowledge_cases import UserUseCases
+
+from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
+
 from ..utils import index as utils
 
-async def async_scheduler(job: 'Callable', trigger: CronTrigger, type: 'str' = "cron", *kargs) -> None:
 
+def async_scheduler(job: 'Callable', trigger: CronTrigger, *kargs) -> AsyncIOScheduler:
+    """create a scheduler to be executed in future 
+
+    :param job: _description_
+    :type job: Callable
+    :param trigger: _description_
+    :type trigger: CronTrigger
+    :param type: _description_, defaults to "cron"
+    :type type: str, optional
+    :return: _description_
+    :rtype: _type_
+    """
     _scheduler = AsyncIOScheduler()
-    _scheduler.add_job(job, 
-    trigger = trigger if trigger is None else type, id=str(uuid.uuid4()), *kargs)
+    _scheduler.add_job(job, trigger = trigger, id = str(uuid.uuid4()), *kargs)
     _scheduler.start()
 
     return _scheduler
@@ -80,18 +94,15 @@ async def load_user_descriptors(system_id: str, db: UserDB, loop: 'asyncio.Abstr
     """
 
     use_cases = UserUseCases(db)
-
     results = await loop.run_in_executor(None, lambda: use_cases.get_users({
         "system_id": system_id
     }))
 
-    if results == [] or results is None:
-        return None
 
-    users_queue = utils.ThreadedGenerator(results, daemon=True)
-    users_queue.insert_action(cb=utils.extract_objects, args=(["detection", "author"]))
+    if results is None or results == []:
+        results = []
 
-    return users_queue
+    return utils.extract_objects(results, ["detection", "author"])
 
 @loop_manager
 async def get_system(system: 'dict', db: SystemDB, loop: 'asyncio.AbstractEventLoop') -> 'dict|None':
@@ -152,3 +163,36 @@ async def find_user(filter: 'dict', db: UserDB, loop: 'asyncio.AbstractEventLoop
         return None
 
     return result
+
+@loop_manager
+async def get_users(_filter: 'dict', db: UserDB, loop: 'asyncio.AbstractEventLoop') -> 'list':
+    """search information about users.
+
+    Returns:
+        list: list of users
+    """
+    use_cases = UserUseCases(db)
+    result = await loop.run_in_executor(None, lambda: use_cases.get_users(_filter))
+
+    if result == [] or result is None:
+        return None
+
+    return result
+
+@loop_manager
+async def remove_users_duplicate_detection(_filter: 'dict', db: UserDB, loop: 'asyncio.AbstractEventLoop') -> None:
+    """search information about users.
+
+    Returns:
+        list: list of users
+    """
+    use_cases = UserUseCases(db)
+    users = await loop.run_in_executor(None, lambda: use_cases.get_users(_filter))
+
+    if users != [] or users not is None:
+        detections = None
+        for user in users:
+            if detections is None:
+                detections = np.array([user.detection])
+            else:
+                distance = np.apply_along_axis(lambda row: utils.euclidean_distance(row, np.array(user.detection)), 1, detections)

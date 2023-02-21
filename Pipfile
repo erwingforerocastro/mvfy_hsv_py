@@ -11,11 +11,11 @@ attrs = "*"
 pydantic = "*"
 face-recognition = "*"
 pymongo = "*"
-apscheduler = "*"
 pillow = "*"
 cmake = "*"
 deepface = "*"
 aioflask = "*"
+apscheduler = "==3.6.3"
 
 [dev-packages]
 pylint = "*"

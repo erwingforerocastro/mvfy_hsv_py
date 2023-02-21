@@ -1,23 +1,31 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from typing import Any, Optional, Tuple
 
 import cv2
 import face_recognition
 import numpy as np
 from cv2 import Mat
+from mvfy.entities.visual_knowledge_entities import User
 from utils import index as utils
 
 
 @dataclass
 class Detector(ABC):
-
-    authors: list = field(default_factory=list)
-    encodings: list = field(default_factory=list)
+    known: list[User] = field(default_factory=list)
+    unknown: list[User] = field(default_factory=list)
+    authors_known: list = field(default_factory=list)
+    authors_unknown: list = field(default_factory=list)
+    encodings_know: list = field(default_factory=list)
+    encodings_unknown: list = field(default_factory=list)
     resize_factor: Optional[float] = 0.25
 
     @abstractmethod
     async def detect(self, image: Mat) -> Tuple[utils.ThreadedGenerator, utils.ThreadedGenerator]:
+        pass
+
+    @abstractmethod
+    async def detect(self) -> Tuple[utils.ThreadedGenerator, utils.ThreadedGenerator]:
         pass
 
 @dataclass
@@ -27,65 +35,33 @@ class DetectorUnknows(Detector):
     features (list, optional): list of features to save see utils.constants. Defaults to []."""
 
     labels: tuple = ("Unknown", "Know")
-    min_descriptor_distance: Optional[float] = 0.6
+    min_descriptor_distance: Optional[float] = 0.7
     actual_img: np.array = np.array([])
-
-    async def detect(self, image: Mat) -> Tuple[utils.ThreadedGenerator, utils.ThreadedGenerator]:
-        """Detect unkwnows in image
+    face_locations: list = field(default_factory=list)
+    
+    async def get_encodings(self, image: Mat) -> list:
+        """Detect encodings of faces in image
 
         Args:
             image (Mat): image with faces to compare
 
         Returns:
-            Tuple[Tuple[Dict], Tuple[Dict]]: more_similar, less_similar
+            List: List of 128-dimensional face encodings
         """
         self.actual_img = image
 
         self.reduce_dimensions_image()
-        face_locations = face_recognition.face_locations(self.actual_img)
+        self.face_locations = face_recognition.face_locations(self.actual_img)
         face_encodings = []
 
-        if not face_locations is None and face_locations != []:
-            face_encodings = face_recognition.face_encodings(self.actual_img, face_locations)
-
-        more_similar = []
-        less_similar = []
-
-        for idx, face_encoding in enumerate(face_encodings):
-            face_distances = face_recognition.face_distance(self.encodings, face_encoding)
-            if len(face_distances) > 0:
-                best_match_index = np.argmin(face_distances)
-
-                if face_distances[best_match_index] > self.min_descriptor_distance:
-                    less_similar.append({
-                        "name": self.labels[0],
-                        "location": self.enlarge_dimensions(face_locations[idx]),
-                        "distance": face_distances[best_match_index],
-                        "encoding": face_encoding,
-                        "features": []
-                    })
-                else:
-                    more_similar.append({
-                        "name": self.labels[1],
-                        "location": self.enlarge_dimensions(face_locations[idx]),
-                        "distance": face_distances[best_match_index],
-                        "author": self.authors[best_match_index],
-                        "encoding": face_encoding,
-                        "features": []
-                    })
-            else:
-                less_similar.append({
-                    "name": self.labels[0],
-                    "location": face_locations[idx],
-                    "distance": 0,
-                    "encoding": face_encoding,
-                    "features": []
-                })
+        if not (self.face_locations is None and self.face_locations != []):
+            face_encodings = face_recognition.face_encodings(self.actual_img, self.face_locations)
         
-        more_similar = utils.ThreadedGenerator(more_similar, daemon=True)
-        less_similar = utils.ThreadedGenerator(less_similar, daemon=True)
+        return face_encodings
 
-        return more_similar, less_similar
+    async def compare(self, encoding: list[np.ndarray]) -> np.ndarray:
+
+        return face_recognition.face_distance(self.encodings, encoding)
     
     def enlarge_dimensions(self, location: Tuple[int, ...]) -> Tuple[int, ...]:
         """
@@ -100,7 +76,7 @@ class DetectorUnknows(Detector):
         bottom *= return_size
         left *= return_size
 
-        return top, right, bottom, left
+        return tuple(map(int, (top, right, bottom, left))) 
 
     def reduce_dimensions_image(self) -> None:
         """
