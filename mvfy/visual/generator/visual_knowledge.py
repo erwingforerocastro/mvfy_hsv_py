@@ -5,7 +5,7 @@ import uuid
 from asyncio import Queue
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, Tuple
 from bson import ObjectId
 
 import cv2
@@ -29,7 +29,8 @@ from . import errors
 @dataclass
 class VisualKnowledge(ImageGenerator):
 
-    detector: Optional[Detector] = None
+    detector_knows: Optional[Detector] = None
+    detector_unknows: Optional[Detector] = None
     receiver: Optional[Receiver] = None
     streamer: Optional[Streamer] = None
     type_service: Optional[str] = None
@@ -137,8 +138,8 @@ class VisualKnowledge(ImageGenerator):
 
         if users is not None:
             authors, encodings = zip(*((user.author, user.detection) for user in users))
-            self.detector.authors =  authors
-            self.detector.encodings =  encodings
+            self.detector_knows.authors =  authors
+            self.detector_knows.encodings =  encodings
 
     async def insert_unknown_users(self, users: list[User]):
         users = await func.get_users(
@@ -148,8 +149,8 @@ class VisualKnowledge(ImageGenerator):
 
         if users is not None:
             authors, encodings = zip(*((user.author, user.detection) for user in users))
-            self.detector.authors =  authors
-            self.detector.encodings =  encodings
+            self.detector_unknows.authors =  authors
+            self.detector_unknows.encodings =  encodings
 
     def __get_cron_trigger(self) -> CronTrigger:
         """get crontrigger of now every day
@@ -237,19 +238,8 @@ class VisualKnowledge(ImageGenerator):
                     logging.error(f"Error processing image {error}")
                     await self.put_image(img)
 
+    async def save_new_unknown(self, encoding: np.ndarray, features: list) -> None:
 
-    async def process_less_similar(self, image: np.ndarray, draw_label: bool, name: str, location: Any, encoding: np.ndarray, features: list) -> np.ndarray:
-        #WARNING: programmer don't do this is a bad practice
-
-        (top, right, bottom, left) = location
-
-        cv2.rectangle(image, (left, top), (right, bottom), (0, 0, 255), 1)
-
-        if draw_label is True:
-            cv2.rectangle(image, (left, bottom), (right, bottom + 20), (0, 0, 255), cv2.FILLED)
-            font = cv2.FONT_HERSHEY_DUPLEX
-            cv2.putText(image, name, (left + 10, bottom + 18), font, 0.8, (255, 255, 255), 1)
-        
         new_author = str(uuid.uuid4())
 
         try:
@@ -264,15 +254,28 @@ class VisualKnowledge(ImageGenerator):
                 "frequency": 0,
             })
 
-            self.detector.authors.append(new_author)
-            self.detector.encodings.append(encoding.tolist())
+            self.detector_unknows.authors.append(new_author)
+            self.detector_unknows.encodings.append(encoding.tolist())
 
         except Exception as error:
             logging.error(f"Error to insert a new user, {error}")
 
+    async def draw_frame(self, image: np.ndarray, draw_label: bool, name: str, location: Any, color = Tuple[int, int, int]) -> np.ndarray:
+        #WARNING: programmer don't do this is a bad practice
+
+        (top, right, bottom, left) = location
+
+        cv2.rectangle(image, (left, top), (right, bottom), color, 1)
+
+        if draw_label is True:
+            cv2.rectangle(image, (left, bottom), (right, bottom + 20), color, cv2.FILLED)
+            font = cv2.FONT_HERSHEY_DUPLEX
+            cv2.putText(image, name, (left + 10, bottom + 18), font, 0.8, (255, 255, 255), 1)
+        
+
         return image
 
-    async def process_more_similar(self, image: np.ndarray, draw_label: bool, name: str, location: Any, author: str) -> np.ndarray:
+    async def frame_more_similar(self, image: np.ndarray, draw_label: bool, name: str, location: Any) -> np.ndarray:
         
         (top, right, bottom, left) = location
 
@@ -283,16 +286,6 @@ class VisualKnowledge(ImageGenerator):
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(image, name, (left + 10, bottom + 18), font, 0.8, (255, 255, 255), 1)
 
-        user = await func.find_user({
-                "author": author
-            }, db = self.db_users)
-
-        if user is None:
-            logging.error(f"Error user not found in BD, author: {author}")
-
-        await self.evaluate_detection(user)
-
-        
         return image
 
     async def process_unknows(self, img: np.array, draw_label: bool = False) -> 'np.array':
@@ -305,50 +298,62 @@ class VisualKnowledge(ImageGenerator):
         Returns:
             np.array: img
         """
-        face_encodings = await self.detector.get_encodings(img)
+        face_encodings = await self.detector_unknows.get_encodings(img)
 
         for idx, face_encoding in enumerate(face_encodings):
-            face_distances = await self.detector.compare(face_encoding)
-            if face_distances.shape[0] > 0:
-                best_match_index = np.argmin(face_distances)
-                if face_distances[best_match_index] > self.detector.min_descriptor_distance:
-                    img = await self.process_more_similar(
+
+            face_distances_knowns = await self.detector_knows.compare(face_encoding)
+
+            if face_distances_knowns.shape[0] > 0:
+                best_match_index = np.argmin(face_distances_knowns)
+                if face_distances_knowns[best_match_index] > self.detector_knows.min_descriptor_distance:
+                    await self.draw_frame(
                         image = img,
                         draw_label = draw_label,
-                        name = self.detector.labels[1],
-                        location = self.detector.enlarge_dimensions(self.detector.face_locations[idx]),
-                        author = self.detector.authors[best_match_index]
+                        name = 'conocido',
+                        location = self.detector_knows.enlarge_dimensions(self.detector_knows.face_locations[idx]),
+                        color = (0, 128, 0)
                     )
-                else:
-                    img = await self.process_less_similar(
-                        image = img,
-                        draw_label = draw_label,
-                        name = self.detector.labels[0],
-                        location = self.detector.enlarge_dimensions(self.detector.face_locations[idx]),
+                    continue
+            
+            face_distances_unknowns = await self.detector_unknows.compare(face_encoding)
+
+            if face_distances_unknowns.shape[0] > 0:
+                best_match_index = np.argmin(face_distances_unknowns)
+                if face_distances_unknowns[best_match_index] < self.detector_unknows.min_descriptor_distance:
+                    await self.save_new_unknown(
                         encoding = face_encoding,
                         features = []
                     )
-            else:
-                img = await self.process_less_similar(
-                    image = img,
-                    draw_label = draw_label,
-                    name = self.detector.labels[0],
-                    location = self.detector.enlarge_dimensions(self.detector.face_locations[idx]),
-                    encoding = face_encoding,
-                    features = []
-                    )
+
+                img = await self.draw_frame(
+                        image = img,
+                        draw_label = draw_label,
+                        name = 'desconocido',
+                        location = self.detector_unknows.enlarge_dimensions(self.detector_unknows.face_locations[idx]),
+                        color = (0, 0, 255)
+                )
+                
 
         return img
 
-    async def evaluate_detection(self, user: dict) -> dict:
+    async def evaluate_detection(self, author: str) -> dict:
         """Evaluate the user s detection.
 
         Args:
-            user (dict): user to be evaluated
+            author (dict): author to be evaluated
 
         Returns:
             dict: user modified
         """
+        user = await func.find_user({
+                "author": author
+        }, db = self.db_users)
+
+        if user is None:
+            logging.error(f"Error user not found in BD, author: {author}")
+            return {}
+        
         prev_user = user
         diff_date = utils.get_date_diff_so_far(user.init_date, self.min_date_knowledge[1])
 

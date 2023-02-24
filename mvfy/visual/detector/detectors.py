@@ -12,31 +12,40 @@ from utils import index as utils
 
 @dataclass
 class Detector(ABC):
-    known: list[User] = field(default_factory=list)
-    unknown: list[User] = field(default_factory=list)
-    authors_known: list = field(default_factory=list)
-    authors_unknown: list = field(default_factory=list)
-    encodings_know: list = field(default_factory=list)
-    encodings_unknown: list = field(default_factory=list)
+
+    authors: list = field(default_factory=list)
+    encodings: list = field(default_factory=list)
     resize_factor: Optional[float] = 0.25
 
-    @abstractmethod
-    async def detect(self, image: Mat) -> Tuple[utils.ThreadedGenerator, utils.ThreadedGenerator]:
-        pass
+    
+    def reduce_dimensions_image(self) -> None:
+        """
+        Resizes the image to less dimensions"""
+        self.actual_img = cv2.resize(
+            self.actual_img, 
+            dsize = (0, 0), 
+            fx = self.resize_factor, 
+            fy = self.resize_factor)
 
-    @abstractmethod
-    async def detect(self) -> Tuple[utils.ThreadedGenerator, utils.ThreadedGenerator]:
-        pass
+    def enlarge_dimensions(self, location: Tuple[int, ...]) -> Tuple[int, ...]:
+        """
+        Enlarges the location to the image size"""
 
+        return_size = 1 / self.resize_factor
+        (top, right, bottom, left) = location
+
+        # Scale back up face locations since the frame we detected in was scaled to 1/4 size
+        top *= return_size
+        right *= return_size
+        bottom *= return_size
+        left *= return_size
+
+        return tuple(map(int, (top, right, bottom, left))) 
+    
 @dataclass
-class DetectorUnknows(Detector):
-    """
-    labels (tuple, optional): labels for unknown users and know users. Defaults to ("Unknown" "Know").
-    features (list, optional): list of features to save see utils.constants. Defaults to []."""
+class DetectorFaces(Detector):
 
-    labels: tuple = ("Unknown", "Know")
-    min_descriptor_distance: Optional[float] = 0.7
-    actual_img: np.array = np.array([])
+    actual_img: np.ndarray = np.array([])
     face_locations: list = field(default_factory=list)
     
     async def get_encodings(self, image: Mat) -> list:
@@ -63,28 +72,5 @@ class DetectorUnknows(Detector):
 
         return face_recognition.face_distance(self.encodings, encoding)
     
-    def enlarge_dimensions(self, location: Tuple[int, ...]) -> Tuple[int, ...]:
-        """
-        Enlarges the location to the image size"""
-
-        return_size = 1 / self.resize_factor
-        (top, right, bottom, left) = location
-
-        # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-        top *= return_size
-        right *= return_size
-        bottom *= return_size
-        left *= return_size
-
-        return tuple(map(int, (top, right, bottom, left))) 
-
-    def reduce_dimensions_image(self) -> None:
-        """
-        Resizes the image to less dimensions"""
-        self.actual_img = cv2.resize(
-            self.actual_img, 
-            dsize = (0, 0), 
-            fx = self.resize_factor, 
-            fy = self.resize_factor)
 
     

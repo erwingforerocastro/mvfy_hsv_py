@@ -6,6 +6,7 @@ from flask import Flask, Response, render_template_string
 
 from mvfy.utils import constants as const, index as utils
 from mvfy.visual.detector import DetectorUnknows
+from mvfy.visual.detector.detectors import Detector, DetectorFaces
 from mvfy.visual.generator import VisualKnowledge
 from mvfy.visual.receiver import ReceiverIpCam
 from mvfy.visual.streamer import FlaskStreamer
@@ -13,11 +14,13 @@ from mvfy.visual.streamer import FlaskStreamer
 app = Flask(__name__)
 
 receiver = ReceiverIpCam(ip_cam="rtsp://mvfy:mvfy@192.168.1.4:8080/h264_ulaw.sdp")
-detector = DetectorUnknows()
+detector_knows = DetectorFaces()
+detector_unknows = DetectorFaces()
 streamer = FlaskStreamer()
 
 visual = VisualKnowledge(
-    detector=detector,
+    detector_knows=detector_knows,
+    detector_unknows=detector_unknows,
     receiver=receiver,
     streamer=streamer,
     type_service=const.TYPE_SERVICE["LOCAL"],
