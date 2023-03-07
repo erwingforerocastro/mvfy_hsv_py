@@ -183,6 +183,7 @@ def run_async_in_thread(coroutine: Coroutine) -> Thread:
     asyncio.set_event_loop(loop)
     
     thread = threading.Thread(target = loop.run_until_complete, args = (coroutine, ))
+    thread.daemon = True
     thread.start()
 
     return thread
@@ -198,7 +199,7 @@ class ThreadedGenerator():
 
     def __init__(self, 
         iterator: Iterable,
-        daemon = False,
+        daemon = True,
         Thread = Thread,
         sentinel: 'Any' = None,
         queue=Queue):

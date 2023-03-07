@@ -1,7 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Iterable, Tuple, Union
+from asyncio import Queue
+import asyncio
+import time
+from typing import Any, Iterable, Optional, Tuple, Union
 
 import cv2
+import numpy as np
 from pydantic.dataclasses import dataclass
 from . import errors
 from mvfy.utils import constants
@@ -12,49 +16,86 @@ class Receiver(ABC):
         pass
     
     @abstractmethod
-    def start(self) -> Iterable :
+    def start(self) -> None:
         pass
     
+    @abstractmethod
+    def get(self) -> bytes:
+        pass
+
 @dataclass
 class ReceiverIpCam(Receiver):
 
     ip_cam: str
     dimensions: Tuple[int, int] = constants.IMAGE_DIMENSIONS
+    images_queue: Optional[Any] = None
+    images_queue_size: int = 0
+    stream: Any = None
+    framerate: int = 30
+    detections_failed: int = 0
 
-    def start(self) -> callable:
-        def inside_function() -> Iterable:
-            stream = None
-            try:
-                print(f"conecting.... {self.ip_cam}")
-                if stream is None:
-                    stream = cv2.VideoCapture(self.ip_cam)
-                    
-                print("init the capture of image")
-                
-                if stream is None:
-                    raise errors.FailedConnectionWithRSTP(self.ip_cam)
+    def __post_init__(self):
+        
+        self.images_queue = Queue()
 
-                while stream.isOpened():
-                    try:
-                        yield stream.read()
-                        
-                        if stream is None:
-                            print(f"reconecting.... {self.ip_cam}")
-                            stream = cv2.VideoCapture(self.ip_cam)
-                    
-                    except StopIteration:
+    def __init_stream(self) -> None:
+
+        print(f"conecting.... {self.ip_cam}")
+
+        self.stream = cv2.VideoCapture(self.ip_cam)
+        
+        if self.stream is None:
+            raise errors.FailedConnectionWithRSTP(self.ip_cam)
+        
+    async def start(self) -> None:
+
+        try:
+            self.__init_stream()
+
+            while self.stream.isOpened():
+                try:
+                    ret, img = self.stream.read()
+                    if ret:
+                        await self.images_queue.put(img)
+                        self.images_queue_size += 1
+                        self.detections_failed = 0
+                    else:
+                        self.detections_failed += 1
+                    if self.stream is None or self.detections_failed > self.framerate:
                         print(f"reconecting.... {self.ip_cam}")
-                        stream = cv2.VideoCapture(self.ip_cam)
-                    except Exception as error:
-                        raise Exception(f"Error in stream connection {error}")
+                        self.__init_stream()
 
-            except Exception as error:
+                except StopIteration:
+                    print(f"reconecting.... {self.ip_cam}")
+                    self.__init_stream()
                 
-                raise Exception(f"Error in connection to {self.ip_cam}, {error}")
+                except Exception as error:
+                    raise Exception(f"Error in stream connection {error}")
 
-        return inside_function()
+        except Exception as error:
+            raise Exception(f"Error in connection to {self.ip_cam}, {error}")
+
     
+    def get(self) -> np.array:
 
+        # while self.images_queue.empty():
+            # print('waiting ip cam ...')
+        while self.images_queue.empty():
+                time.sleep(0.1)
+
+        image = self.images_queue.get_nowait()
+        self.images_queue_size -= 1
+
+        return image
+    
+    def __iter__(self):
+
+        return self
+
+    def __next__(self):
+
+        return self.get()
+    
 class ReceiverSocket(Receiver):
     """
     TODO: implement all properties to this class

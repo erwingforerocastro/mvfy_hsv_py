@@ -90,12 +90,6 @@ class UserDB(MongoDB):
 
         founds = super().find(self.collection, filter, **kargs)
 
-        if founds is None:
-            return None
-
-        for found in founds:
-            found["id"] = str(found.pop("_id"))
-
         return founds
 
     def insert_one(self, value: 'dict', **kargs) -> 'dict|None':

@@ -16,6 +16,7 @@ cmake = "*"
 deepface = "*"
 aioflask = "*"
 apscheduler = "==3.6.3"
+mediapipe = "*"
 
 [dev-packages]
 pylint = "*"

@@ -70,11 +70,15 @@ class UserUseCases:
     def get_users(self, filter: 'dict') -> 'None|list[User]':
 
         result = self.db.find_many(filter)
+
         if result is None:
             return []
 
         new_result = []
         for user in result:
+            if '_id' in user.keys():
+                user["id"] = str(user.pop("_id"))
+                
             new_result.append(User(**user))
 
         return new_result

@@ -189,7 +189,7 @@ async def remove_users_duplicate_detection(_filter: 'dict', db: UserDB, loop: 'a
     use_cases = UserUseCases(db)
     users = await loop.run_in_executor(None, lambda: use_cases.get_users(_filter))
 
-    if users != [] or users not is None:
+    if users != [] or not (users is None):
         detections = None
         for user in users:
             if detections is None:
