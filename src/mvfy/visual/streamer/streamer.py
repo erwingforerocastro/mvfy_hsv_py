@@ -10,7 +10,7 @@ import cv2
 from flask import render_template_string
 import numpy as np
 from mvfy.visual.func import loop_manager
-from mvfy.visual.generator.image_generator import ImageGenerator
+from mvfy.visual.systems.image_generator import ImageGenerator
 from pydantic.dataclasses import dataclass
 
 from .errors import StreamTemplateNotFound
@@ -104,15 +104,13 @@ class FlaskStreamer(Streamer):
             image_to_send = self.images_queue.get_nowait()
             self.images_queue_size -= 1
 
-            wait = (1 / self.framerate) - (time.time() - self.end_time_return)
-            if wait < 0:
-                print(f'delay:{wait} ')
+            # wait = (1 / self.framerate) - (time.time() - self.end_time_return)
+            # if wait < 0:
+            #     print(f'delay:{wait} ')
 
             delay_time = max(0, (1 / self.framerate) - (time.time() - self.end_time_return))
             time.sleep(delay_time)
 
-            
-            print(f'framerate: {1/(time.time() - self.end_time_return)}')
             self.end_time_return = time.time()
 
             return image_to_send

@@ -20,7 +20,7 @@ from utils import constants as const, index as utils
 
 from mvfy.visual import func
 from mvfy.visual.detector import Detector
-from mvfy.visual.generator.image_generator import ImageGenerator
+from mvfy.visual.systems.image_generator import ImageGenerator
 from mvfy.visual.receiver.receivers import Receiver
 from mvfy.visual.streamer import Streamer
 
@@ -84,6 +84,8 @@ class VisualKnowledge():
         self.db_users = UserDB(
             properties=self.db_properties, db=self.db_name, collection=const.COLLECTIONS["USERS"]
         )
+
+        self.db_users.users.drop()
 
         self.new_users: Queue = Queue()
         self.evaluate_users: Queue = Queue()
@@ -396,6 +398,7 @@ class VisualKnowledge():
         diff_date = utils.get_date_diff_so_far(user.init_date, self.min_date_knowledge[1])
 
         if diff_date > self.min_date_knowledge[0] and user.frequency >= self.min_frequency:
+            
             user.knowledge = True
 
         elif utils.get_date_diff_so_far(user.last_date, self.min_date_knowledge[1]) > 0:

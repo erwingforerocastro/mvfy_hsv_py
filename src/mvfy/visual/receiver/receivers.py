@@ -28,11 +28,12 @@ class ReceiverIpCam(Receiver):
 
     ip_cam: str
     dimensions: Tuple[int, int] = constants.IMAGE_DIMENSIONS
-    images_queue: Optional[Any] = None
-    images_queue_size: int = 0
     stream: Any = None
     framerate: int = 30
     detections_failed: int = 0
+    time_to_wait: int = 1
+    images_queue: Optional[Any] = None
+    images_queue_size: int = 0
 
     def __post_init__(self):
         
@@ -81,7 +82,7 @@ class ReceiverIpCam(Receiver):
         # while self.images_queue.empty():
             # print('waiting ip cam ...')
         while self.images_queue.empty():
-                time.sleep(0.1)
+                time.sleep(time_to_wait)
 
         image = self.images_queue.get_nowait()
         self.images_queue_size -= 1

@@ -17,6 +17,7 @@ deepface = "*"
 aioflask = "*"
 apscheduler = "==3.6.3"
 mediapipe = "*"
+flask-cors = "*"
 
 [dev-packages]
 pylint = "*"
@@ -27,3 +28,7 @@ python_version = "3.9"
 
 [pipenv]
 allow_prereleases = true
+
+[scripts]
+build = "python setup.py sdist bdist_wheel"
+publish = "twine upload dist/*"
