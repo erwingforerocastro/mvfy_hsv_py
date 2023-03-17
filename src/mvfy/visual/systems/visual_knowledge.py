@@ -47,6 +47,8 @@ class VisualKnowledge():
     delay: int = 30
     batch_images: int = 30
     draw_label: bool = False
+    date_format: str = const.DATE_FORMAT
+    cron_reload: Optional[CronTrigger] = None
 
     """
     Main model builder
@@ -74,8 +76,8 @@ class VisualKnowledge():
         self.id = None
 
         # more info
-        self.date_format = const.DATE_FORMAT
-        self.cron_reload = self.__get_cron_trigger()
+        if self.cron_reload is None:
+            self.cron_reload = self.__get_cron_trigger()
 
         # DB
         self.db_systems = SystemDB(
@@ -84,8 +86,6 @@ class VisualKnowledge():
         self.db_users = UserDB(
             properties=self.db_properties, db=self.db_name, collection=const.COLLECTIONS["USERS"]
         )
-
-        self.db_users.users.drop()
 
         self.new_users: Queue = Queue()
         self.evaluate_users: Queue = Queue()
@@ -165,46 +165,34 @@ class VisualKnowledge():
 
     async def insert_known_users(self):
 
-        users = await func.get_users(
-            {"system_id": self.id, "knowledge": True}, db=self.db_users
-        )
+        try:
+            users = await func.get_users(
+                {"system_id": self.id, "knowledge": True}, db=self.db_users
+            )
 
-        if users is not None:
-            authors, encodings = zip(*[[user.author, user.detection] for user in users])
-            self.detector_knows.authors = np.array(authors)
-            self.detector_knows.encodings = np.array(encodings)
+            if users is not None:
+                authors, encodings = zip(*[[user.author, user.detection] for user in users])
+                self.detector_knows.authors = np.array(authors)
+                self.detector_knows.encodings = np.array(encodings)
 
+        except Exception as error:
+            logging.error(f"Failed to insert faces of known users, {error}")
+        
     async def insert_unknown_users(self):
 
-        users = await func.get_users(
-            {"system_id": self.id, "knowledge": False}, db=self.db_users
-        )
+        try:
 
-        if users is not None:
-            authors, encodings = zip(*[[user.author, user.detection] for user in users])
-            self.detector_unknows.authors = np.array(authors)
-            self.detector_unknows.encodings = np.array(encodings)
+            users = await func.get_users(
+                {"system_id": self.id, "knowledge": False}, db=self.db_users
+            )
 
-    def set_conf(
-        self,
-        date_format: Optional[str] = None,
-        draw_label: Optional[bool] = None,
-        cron_reload: Optional[CronTrigger] = None,
-    ) -> None:
-        """_summary_
+            if users is not None:
+                authors, encodings = zip(*[[user.author, user.detection] for user in users])
+                self.detector_unknows.authors = np.array(authors)
+                self.detector_unknows.encodings = np.array(encodings)
 
-        :param date_format: _description_, defaults to None
-        :type date_format: Optional[str], optional
-        :param draw_label: _description_, defaults to None
-        :type draw_label: Optional[bool], optional
-        :param cron_reload: _description_, defaults to None
-        :type cron_reload: Optional[CronTrigger], optional
-        """
-
-        # more info
-        self.date_format = date_format if date_format is not None else self.date_format
-        self.draw_label = draw_label if draw_label is not None else self.draw_label
-        self.cron_reload = cron_reload if cron_reload is not None else self.cron_reload
+        except Exception as error:
+            logging.error(f"Failed to insert faces of unknown users, {error}")
 
     def get_obj(self) -> dict:
         """Get a dict of the attributes for this instance.
@@ -349,7 +337,10 @@ class VisualKnowledge():
         for face_location, face_encoding in zip(*face_properties):
             
             # location = self.detector_unknows.enlarge_dimensions(self.detector_unknows.face_locations[idx])
-            known_comparations, unknown_comparations = await asyncio.gather(self.detector_knows.compare(face_encoding), self.detector_unknows.compare(face_encoding))
+            known_comparations, unknown_comparations = await asyncio.gather(
+                self.detector_knows.compare(face_encoding), 
+                self.detector_unknows.compare(face_encoding),
+                return_exceptions=True)
 
             if np.any(known_comparations):
                 
@@ -404,10 +395,15 @@ class VisualKnowledge():
         elif utils.get_date_diff_so_far(user.last_date, self.min_date_knowledge[1]) > 0:
 
             prev_days = utils.frequency(
-                total=self.min_date_knowledge[0], percentage=1, value=self.frequency, invert=True
+                total=self.min_date_knowledge[0], 
+                percentage=1, 
+                value=self.frequency, invert=True
             )
             user.last_date = datetime.now()
-            user.frequency = utils.frequency(self.min_date_knowledge[0], 1, prev_days + 1)
+            user.frequency = utils.frequency(
+                total = self.min_date_knowledge[0], 
+                percentage = 1, 
+                value = prev_days + 1)
 
         return (
             await func.update_user({**user, "modified_on": datetime.now()}, self.db_users)

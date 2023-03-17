@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List
 from utils import index as utils
 from entities.visual_knowledge_entities import System, User
 
@@ -82,6 +82,22 @@ class UserUseCases:
             new_result.append(User(**user))
 
         return new_result
+    
+    def get_sort_users(self, filter: 'dict', sort_filters: List) -> 'None|list[User]':
+
+        result = self.db.find_many(filter).sort(sort_filters)
+
+        if result is None:
+            return []
+
+        new_result = []
+        for user in result:
+            if '_id' in user.keys():
+                user["id"] = str(user.pop("_id"))
+                
+            new_result.append(User(**user))
+
+        return new_result
 
     def update_user(self, id: 'str', new_user: 'dict') -> 'None|Any':
 
@@ -99,7 +115,4 @@ class UserUseCases:
     
     def delete_user(self, filter: 'dict') -> 'None|Any':
 
-        if filter["id"] is None:
-            raise ValueError("You must supply an id.")
-        
-        return self.db.delete_one()
+        return self.db.delete_one(filter)

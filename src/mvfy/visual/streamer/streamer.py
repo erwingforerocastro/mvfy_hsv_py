@@ -68,7 +68,7 @@ class FlaskStreamer(Streamer):
         if flag:
             self.wait_image: bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + bytearray(resize_image) + b'\r\n'
     
-    @loop_manager
+    @(lambda func: loop_manager(func, True))
     async def img2bytes(self, image, loop: 'asyncio.AbstractEventLoop') -> bytes:
 
         images_bytes = b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + bytearray() + b'\r\n'

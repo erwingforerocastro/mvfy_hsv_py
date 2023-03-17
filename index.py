@@ -2,7 +2,7 @@ from flask import Flask, Response
 from flask_cors import CORS
 
 from src.mvfy.utils import constants as const, index as utils
-from src.mvfy.visual.detector.detectors import DetectorFaces
+from src.mvfy.visual.detector.detectors import DetectorFacesCPU
 from src.mvfy.visual.systems import VisualKnowledge
 from src.mvfy.visual.receiver import ReceiverIpCam
 from src.mvfy.visual.streamer import FlaskStreamer
@@ -11,8 +11,8 @@ app = Flask(__name__)
 CORS(app, resources={r"*": {"origins": "*"}})
 
 receiver = ReceiverIpCam(ip_cam="rtsp://mvfy:mvfy@192.168.1.6:8080/h264_ulaw.sdp")
-detector_knows = DetectorFaces(tolerance_comparation= 1 - 0.7)
-detector_unknows = DetectorFaces(tolerance_comparation= 1 - 0.7)
+detector_knows = DetectorFacesCPU(tolerance_comparation= 1 - 0.7)
+detector_unknows = DetectorFacesCPU(tolerance_comparation= 1 - 0.7)
 streamer = FlaskStreamer()
 
 visual = VisualKnowledge(

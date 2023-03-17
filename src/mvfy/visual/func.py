@@ -8,8 +8,10 @@ from typing import Callable
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import numpy as np
+import pymongo
 from data_access.visual_knowledge_db import SystemDB, UserDB
 from entities.visual_knowledge_entities import System
+from mvfy.visual.detector.detectors import DetectorFacesCPU
 from use_cases.visual_knowledge_cases import UserUseCases
 
 from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
@@ -35,7 +37,7 @@ def async_scheduler(job: 'Callable', trigger: CronTrigger, *kargs) -> AsyncIOSch
 
     return _scheduler
     
-def loop_manager(func: 'Callable') -> 'Callable':
+def loop_manager(func: 'Callable', add_new: bool = False) -> 'Callable':
     """Decorator for Manage Event Loop.
 
     Args:
@@ -46,7 +48,7 @@ def loop_manager(func: 'Callable') -> 'Callable':
     """
     async def wrapper_function(*args, **kargs):
         loop = asyncio.get_event_loop()
-        if loop is None:
+        if loop is None or add_new:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
         return await func(*args, **kargs, loop = loop)
@@ -187,12 +189,30 @@ async def remove_users_duplicate_detection(_filter: 'dict', db: UserDB, loop: 'a
         list: list of users
     """
     use_cases = UserUseCases(db)
-    users = await loop.run_in_executor(None, lambda: use_cases.get_users(_filter))
+    sort_filter = [('frequency', pymongo.DESCENDING)]
+    users = await loop.run_in_executor(None, lambda: use_cases.get_sort_users(_filter, sort_filter))
+    
+    detector = DetectorFacesCPU(tolerance_comparation=0.2)
 
-    if users != [] or not (users is None):
+    if users != [] or users is not None:
+        authors, encodings = zip(*[[user.author, user.detection] for user in users])
+        detector.authors = np.array(authors)
+        detector.encodings = np.array(encodings)
+
+        for idx, encoding in enumerate(detector.encodings, start = 0):
+            detector.encodings = detector.encodings[idx+1:]
+            detector.authors = detector.authors[idx+1:]
+
+            comparations = detector.compare(encoding)
+
+            if np.any(comparations):
+
+                detector.authors = detector.authors[comparations]
+                detector.encodings = detector.encodings[comparations]
+
+                for author in duplicate_authors:
+                    await loop.run_in_executor(None, lambda: use_cases.delete_user({'author': str(author)}))
+
+    if :
         detections = None
-        for user in users:
-            if detections is None:
-                detections = np.array([user.detection])
-            else:
-                distance = np.apply_along_axis(lambda row: utils.euclidean_distance(row, np.array(user.detection)), 1, detections)
+        
