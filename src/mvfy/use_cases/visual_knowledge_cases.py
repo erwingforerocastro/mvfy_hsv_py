@@ -1,6 +1,6 @@
 from typing import Any, List
-from utils import index as utils
-from entities.visual_knowledge_entities import System, User
+from mvfy.utils import index as utils
+from mvfy.entities.visual_knowledge_entities import System, User
 
 class SystemUseCases:
     def __init__(self, db) -> None:

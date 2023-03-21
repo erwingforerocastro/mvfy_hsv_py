@@ -9,7 +9,7 @@ import threading
 from typing import Any, Callable, Coroutine, Iterable
 
 import numpy as np
-from utils.constants import DATE_FORMAT
+from .constants import DATE_FORMAT
 
 def euclidean_distance(x_1: np.array, x_2: np.array) -> np.float64:
 

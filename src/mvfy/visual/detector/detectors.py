@@ -1,5 +1,6 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 import time
 from typing import Any, Optional, Tuple
@@ -8,9 +9,7 @@ import cv2
 import face_recognition
 import numpy as np
 from cv2 import Mat
-from mvfy.entities.visual_knowledge_entities import User
 from mvfy.visual.func import loop_manager
-from utils import index as utils
 
 
 @dataclass
@@ -33,21 +32,16 @@ class Detector(ABC):
         """
         Enlarges the location to the image size"""
 
-        return_size = 1 / self.resize_factor
-        (top, right, bottom, left) = location
+        result = np.multiply(location, (1/self.resize_factor))
 
-        # Scale back up face locations since the frame we detected in was scaled to 1/4 size
-        top *= return_size
-        right *= return_size
-        bottom *= return_size
-        left *= return_size
-
-        return tuple(map(int, (top, right, bottom, left))) 
+        return tuple(result) 
     
 @dataclass
 class DetectorFacesCPU(Detector):
 
     tolerance_comparation: float = 0.3
+    model: str = "small"
+    num_thread_pool_executors: int = 2
 
     @loop_manager
     async def get_encodings(self, image: Mat, loop: 'asyncio.AbstractEventLoop') -> Tuple[list, list]:
@@ -60,27 +54,38 @@ class DetectorFacesCPU(Detector):
             Tuple[List, List]: [List of locations faces, List of 128-dimensional face encodings]
         """
         face_encodings, face_locations = [], []
+        _time = time.time()
+
         reduced_image = self.reduce_dimensions_image(image)
 
-        face_locations = await loop.run_in_executor(None, face_recognition.face_locations, reduced_image) 
+        print(f"image resize {time.time()-_time}")
+        _time = time.time()
 
-        if len(face_locations) > 0:
-            face_encodings = await loop.run_in_executor(
-                None, 
-                face_recognition.face_encodings, 
-                reduced_image, 
-                face_locations, 
-                {"model": "large"}
-                )
+        with ThreadPoolExecutor(self.num_thread_pool_executors) as executor:
 
-        face_locations_resized = await loop.run_in_executor(
-            None, 
-            lambda: list(map(self.enlarge_dimensions, face_locations)))
+            face_locations = await loop.run_in_executor(executor, face_recognition.face_locations, reduced_image) 
 
+            print(f"face locations {time.time()-_time}")
+            _time = time.time()
+
+            if len(face_locations) > 0:
+                face_encodings = await loop.run_in_executor(
+                    executor, 
+                    lambda: face_recognition.face_encodings( 
+                    reduced_image, 
+                    face_locations, 
+                    model=self.model
+                    ))
+                print(f"face encodings {time.time()-_time}")
+                _time = time.time()
+
+        face_locations_resized = list(np.multiply(face_locations, (1 / self.resize_factor)).astype(int))
+        
         return face_locations_resized, face_encodings
 
     @loop_manager
     async def compare(self, encoding: np.ndarray, loop: 'asyncio.AbstractEventLoop') -> list[bool]:
+        
         res = await loop.run_in_executor(
             None, 
             lambda: face_recognition.compare_faces(

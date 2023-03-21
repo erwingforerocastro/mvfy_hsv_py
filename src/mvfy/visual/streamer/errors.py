@@ -10,3 +10,13 @@ class StreamTemplateNotFound(Exception):
 
     def __str__(self) -> str:
         return f"{self.message} -> {self.path_file}"
+
+class StreamSocketInsufficientSlots(Exception):
+    def __init__(self, 
+    message: str = "Connection refused! No free slots!"
+    ) -> None:
+        self.message = message
+        super().__init__(self.message)
+
+    def __str__(self) -> str:
+        return f"{self.message}"

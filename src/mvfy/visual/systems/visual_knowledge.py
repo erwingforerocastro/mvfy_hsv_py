@@ -1,4 +1,5 @@
 import asyncio
+from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 import logging
 import threading
 import time
@@ -6,23 +7,22 @@ import uuid
 from asyncio import Queue
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Iterable, List, Optional, Tuple
-from bson import ObjectId
+from typing import Any, Optional, Tuple
 
 import cv2
 import numpy as np
 from apscheduler.triggers.cron import CronTrigger
-from data_access.visual_knowledge_db import SystemDB, UserDB
 from pydantic import Field
 from tzlocal import get_localzone
-from mvfy.entities.visual_knowledge_entities import User
-from utils import constants as const, index as utils
 
+from mvfy.data_access.visual_knowledge_db import SystemDB, UserDB
+from mvfy.entities.visual_knowledge_entities import User
+from mvfy.utils import constants as const, index as utils
 from mvfy.visual import func
 from mvfy.visual.detector import Detector
-from mvfy.visual.systems.image_generator import ImageGenerator
 from mvfy.visual.receiver.receivers import Receiver
 from mvfy.visual.streamer import Streamer
+from mvfy.visual.detector.detectors import DetectorFacesCPU
 
 from . import errors
 
@@ -45,10 +45,12 @@ class VisualKnowledge():
     type_system: Optional[str] = const.TYPE_SYSTEM["OPTIMIZED"]
     title: Optional[str] = str(uuid.uuid4())
     delay: int = 30
-    batch_images: int = 30
+    batch_images: int = 20
     draw_label: bool = False
     date_format: str = const.DATE_FORMAT
     cron_reload: Optional[CronTrigger] = None
+    remove_duplicate: bool = True
+    frequency_save_new_unknows: int = 2
 
     """
     Main model builder
@@ -79,6 +81,8 @@ class VisualKnowledge():
         if self.cron_reload is None:
             self.cron_reload = self.__get_cron_trigger()
 
+        self.frequency_save_new_unknows = max(2, self.frequency_save_new_unknows)
+
         # DB
         self.db_systems = SystemDB(
             properties=self.db_properties, db=self.db_name, collection=const.COLLECTIONS["SYSTEMS"]
@@ -90,10 +94,15 @@ class VisualKnowledge():
         self.new_users: Queue = Queue()
         self.evaluate_users: Queue = Queue()
 
-        self._thread_receiver = utils.run_async_in_thread(self.receiver.start())
+        self.__thread_lock = threading.Lock()
+        self._thread_receiver = threading.Thread(target=self.receiver.start)
         self._thread_system = utils.run_async_in_thread(self.start())
         self._thread_insert_new_users = utils.run_async_in_thread(self.add_new_users())
         self._thread_evaluate_users = utils.run_async_in_thread(self.evaluate_detections())
+
+        self._thread_receiver.daemon = True
+        self._thread_receiver.start()
+        self.__batch_processed = 0
 
 
     async def __preload(self) -> None:
@@ -114,6 +123,14 @@ class VisualKnowledge():
         # insert system found in instance
         self.__insert_system(system)
         logging.info("system created")
+
+        if self.remove_duplicate:
+            logging.info("Removing duplicate detections in DB")
+            await func.remove_users_duplicate_detection(
+                _filter={"system_id": self.id},
+                db = self.db_users,
+                detector = DetectorFacesCPU()
+                )
 
         # get descriptors
         await self.insert_known_users()
@@ -162,6 +179,9 @@ class VisualKnowledge():
         self.resize_factor = (
             system["resize_factor"] if system["resize_factor"] is not None else self.resize_factor
         )
+
+    def add_known(self, folder_path: str, ):
+        pass
 
     async def insert_known_users(self):
 
@@ -224,15 +244,19 @@ class VisualKnowledge():
                 raise ValueError(f"invalid batch image size, {self.batch_images}")
         
         while True:
-            
-            images_batch = [self.receiver.get() for _ in range(self.batch_images)]
 
+            with self.__thread_lock:
+                images_batch = [self.receiver.get() for _ in range(self.batch_images)]
+            
             try:
                 images_to_process = images_batch[1::2]
                 images_raw = images_batch[0::2]
-
+                
                 faces = await asyncio.gather(*[self.detector_unknows.get_encodings(img) for img in images_to_process], return_exceptions=True)
                 batch_processed = await asyncio.gather(*[self.detect_type_user(img, face_prop) for img, face_prop in zip(images_to_process, faces)], return_exceptions=True)
+                
+                with self.__thread_lock:
+                    self.__batch_processed += 1
 
                 all_images = []
 
@@ -301,23 +325,20 @@ class VisualKnowledge():
         except Exception as error:
             logging.error(f"Error to insert author for evaluate, {error}")
 
-    @func.loop_manager
-    async def draw_frame(
+    def draw_frame(
         self,
         image: np.ndarray,
-        draw_label: bool,
         name: str,
-        location: Any,
-        color: Tuple[int, int, int],
-        loop: 'asyncio.AbstractEventLoop',
+        location: np.ndarray,
+        color: Tuple[int, int, int]
     ) -> np.ndarray:
         # WARNING: programmer don't do this is a bad practice
 
         (top, right, bottom, left) = location
 
-        await loop.run_in_executor(None, lambda: cv2.rectangle(image, (left, top), (right, bottom), color, 1))
+        cv2.rectangle(image, (left, top), (right, bottom), color, 1)
 
-        if draw_label is True:
+        if self.draw_label is True:
             cv2.rectangle(image, (left, bottom), (right, bottom + 20), color, cv2.FILLED)
             font = cv2.FONT_HERSHEY_DUPLEX
             cv2.putText(image, name, (left + 10, bottom + 18), font, 0.8, (255, 255, 255), 1)
@@ -336,36 +357,37 @@ class VisualKnowledge():
 
         for face_location, face_encoding in zip(*face_properties):
             
-            # location = self.detector_unknows.enlarge_dimensions(self.detector_unknows.face_locations[idx])
-            known_comparations, unknown_comparations = await asyncio.gather(
-                self.detector_knows.compare(face_encoding), 
-                self.detector_unknows.compare(face_encoding),
-                return_exceptions=True)
+            known_comparations = await self.detector_knows.compare(face_encoding)
 
             if np.any(known_comparations):
                 
-                img = await self.draw_frame(
+                img = self.draw_frame(
                     image = img,
-                    draw_label = self.draw_label,
                     name = "conocido",
                     location = face_location,
-                    color=(0, 128, 0),
+                    color=(0, 128, 0)
                 )
 
                 continue
+            
+            with self.__thread_lock:
+                batch = self.__batch_processed
 
-            if np.any(unknown_comparations):
-                previous_authors = self.detector_unknows.authors[:len(unknown_comparations)] 
-                await self.save_evaluate_detection(str(previous_authors[unknown_comparations][0]))
-            else:
-                await self.save_new_unknown(encoding=face_encoding, features=[])
+            if batch % self.frequency_save_new_unknows == 0:
+                
+                unknown_comparations = await self.detector_unknows.compare(face_encoding)
 
-            img = await self.draw_frame(
+                if np.any(unknown_comparations):
+                    previous_authors = self.detector_unknows.authors[:len(unknown_comparations)] 
+                    await self.save_evaluate_detection(str(previous_authors[unknown_comparations][0]))
+                else:
+                    await self.save_new_unknown(encoding=face_encoding, features=[])
+
+            img = self.draw_frame(
                     image = img,
-                    draw_label = self.draw_label,
                     name = "desconocido",
                     location = face_location,
-                    color=(0, 0, 255),
+                    color=(0, 0, 255)
                 )
         
         return img

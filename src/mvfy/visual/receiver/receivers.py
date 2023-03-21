@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from asyncio import Queue
+from queue import Queue
 import asyncio
 import time
 from typing import Any, Iterable, Optional, Tuple, Union
@@ -30,14 +30,15 @@ class ReceiverIpCam(Receiver):
     dimensions: Tuple[int, int] = constants.IMAGE_DIMENSIONS
     stream: Any = None
     framerate: int = 30
-    detections_failed: int = 0
     time_to_wait: int = 1
-    images_queue: Optional[Any] = None
-    images_queue_size: int = 0
+    
 
     def __post_init__(self):
         
-        self.images_queue = Queue()
+        self.__images_queue = Queue()
+        self.__images_queue_size = 0
+        self.__detections_failed = 0
+        self.__frequency_waiting_cam = 0
 
     def __init_stream(self) -> None:
 
@@ -48,7 +49,7 @@ class ReceiverIpCam(Receiver):
         if self.stream is None:
             raise errors.FailedConnectionWithRSTP(self.ip_cam)
         
-    async def start(self) -> None:
+    def start(self) -> None:
 
         try:
             self.__init_stream()
@@ -57,12 +58,12 @@ class ReceiverIpCam(Receiver):
                 try:
                     ret, img = self.stream.read()
                     if ret:
-                        await self.images_queue.put(img)
-                        self.images_queue_size += 1
-                        self.detections_failed = 0
+                        self.__images_queue.put(img)
+                        self.__images_queue_size += 1
+                        self.__detections_failed = 0
                     else:
-                        self.detections_failed += 1
-                    if self.stream is None or self.detections_failed > self.framerate:
+                        self.__detections_failed += 1
+                    if self.stream is None or self.__detections_failed > self.framerate:
                         print(f"reconecting.... {self.ip_cam}")
                         self.__init_stream()
 
@@ -79,13 +80,17 @@ class ReceiverIpCam(Receiver):
     
     def get(self) -> np.array:
 
-        # while self.images_queue.empty():
-            # print('waiting ip cam ...')
-        while self.images_queue.empty():
-                time.sleep(time_to_wait)
+        while self.__images_queue.empty():
+            time.sleep(self.time_to_wait)
+            self.__frequency_waiting_cam += 1
+            if self.__frequency_waiting_cam > self.framerate:
+                print('waiting ip cam ...')
+                while self.__images_queue.empty():
+                    time.sleep(self.time_to_wait)
 
-        image = self.images_queue.get_nowait()
-        self.images_queue_size -= 1
+        image = self.__images_queue.get()
+        self.__images_queue_size -= 1
+        self.__frequency_waiting_cam = 0
 
         return image
     

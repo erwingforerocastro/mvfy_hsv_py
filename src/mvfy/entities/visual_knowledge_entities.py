@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional
-from utils.constants import TYPE_SERVICE, TYPE_SYSTEM
+from mvfy.utils.constants import TYPE_SERVICE, TYPE_SYSTEM
 import numpy as np
 import hashlib
 

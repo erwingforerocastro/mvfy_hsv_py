@@ -3,20 +3,16 @@ import logging
 import uuid
 from asyncio import AbstractEventLoop, Queue, Task
 from datetime import datetime
-from typing import Callable
+from typing import Any, Callable
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 import numpy as np
 import pymongo
-from data_access.visual_knowledge_db import SystemDB, UserDB
-from entities.visual_knowledge_entities import System
-from mvfy.visual.detector.detectors import DetectorFacesCPU
-from use_cases.visual_knowledge_cases import UserUseCases
+from mvfy.data_access.visual_knowledge_db import SystemDB, UserDB
+from mvfy.use_cases.visual_knowledge_cases import UserUseCases, SystemUseCases
 
-from mvfy.use_cases.visual_knowledge_cases import SystemUseCases
-
-from ..utils import index as utils
+from mvfy.utils import index as utils
 
 
 def async_scheduler(job: 'Callable', trigger: CronTrigger, *kargs) -> AsyncIOScheduler:
@@ -182,7 +178,7 @@ async def get_users(_filter: 'dict', db: UserDB, loop: 'asyncio.AbstractEventLoo
     return result
 
 @loop_manager
-async def remove_users_duplicate_detection(_filter: 'dict', db: UserDB, loop: 'asyncio.AbstractEventLoop') -> None:
+async def remove_users_duplicate_detection(_filter: 'dict', db: UserDB, detector: Any, loop: 'asyncio.AbstractEventLoop') -> None:
     """search information about users.
 
     Returns:
@@ -191,28 +187,36 @@ async def remove_users_duplicate_detection(_filter: 'dict', db: UserDB, loop: 'a
     use_cases = UserUseCases(db)
     sort_filter = [('frequency', pymongo.DESCENDING)]
     users = await loop.run_in_executor(None, lambda: use_cases.get_sort_users(_filter, sort_filter))
-    
-    detector = DetectorFacesCPU(tolerance_comparation=0.2)
+
 
     if users != [] or users is not None:
+
         authors, encodings = zip(*[[user.author, user.detection] for user in users])
         detector.authors = np.array(authors)
         detector.encodings = np.array(encodings)
 
-        for idx, encoding in enumerate(detector.encodings, start = 0):
+        idx = 0
+
+        while idx is not None and detector.encodings.shape[0] > 0:
+
+            if idx+1 >= detector.encodings.shape[0]:
+                idx = None
+                continue
+
+            encoding = detector.encodings[idx]
             detector.encodings = detector.encodings[idx+1:]
             detector.authors = detector.authors[idx+1:]
 
-            comparations = detector.compare(encoding)
+            comparations = await detector.compare(encoding)
 
             if np.any(comparations):
 
-                detector.authors = detector.authors[comparations]
-                detector.encodings = detector.encodings[comparations]
-
-                for author in duplicate_authors:
+                for author in detector.authors[comparations]:
                     await loop.run_in_executor(None, lambda: use_cases.delete_user({'author': str(author)}))
+                
+                detector.authors = detector.authors[np.invert(comparations)]
+                detector.encodings = detector.encodings[np.invert(comparations)]
+            
+            idx += 1
 
-    if :
-        detections = None
         
