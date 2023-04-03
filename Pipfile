@@ -5,13 +5,30 @@ name = "pypi"
 
 [packages]
 opencv-python = "*"
-pymongo = "*"
-flask-pymongo = "*"
 numpy = "*"
+flask = "*"
+attrs = "*"
+pydantic = "*"
+face-recognition = "*"
+pymongo = "*"
+pillow = "*"
+cmake = "*"
 deepface = "*"
+aioflask = "*"
+apscheduler = "==3.6.3"
+mediapipe = "*"
+flask-cors = "*"
 
 [dev-packages]
-autopep8 = "*"
+pylint = "*"
+black = "*"
 
 [requires]
 python_version = "3.9"
+
+[pipenv]
+allow_prereleases = true
+
+[scripts]
+build = "python setup.py sdist bdist_wheel"
+publish = "twine upload dist/*"

@@ -1,15 +1,36 @@
 
+import asyncio
 from datetime import datetime
 import inspect
 import logging
 from queue import Queue
 from threading import Thread
-from time import strptime
-from typing import Iterable, Iterator
+import threading
+from typing import Any, Callable, Coroutine, Iterable
 
-from mvfy.visual.func import get_actual_date
+import numpy as np
+from .constants import DATE_FORMAT
 
+def euclidean_distance(x_1: np.array, x_2: np.array) -> np.float64:
 
+    return np.sqrt(np.sum((x_1-x_2)**2))
+
+def get_actual_date(format: str) -> str:
+    """Get the actual date from a given format.
+
+    Args:
+        format (str): valid format datetime
+
+    Returns:
+        datetime: formatted datetime
+    """
+    date = datetime.now()
+    try:
+        return date.strftime(format) if format is not None else str(date)
+    except Exception as e:
+        logging.error(f"get_actual_date - Error to format datetime {e}")
+        return str(date)
+        
 def distribute_object(object_left: dict, object_right: dict) -> dict:
     """Insert object_right inside object_left
     
@@ -122,7 +143,7 @@ def get_date_diff_so_far(date: datetime, _type: str = "days") -> float:
     Returns:
         float: difference between "date" and now
     """
-    date_now = get_actual_date()
+    date_now = datetime.now()
     if date is not None:
         res = None
         if _type == "days":
@@ -154,6 +175,19 @@ def frequency(total: float, percentage: float, value: float, invert: bool = Fals
     """
     return (value * total) / percentage if invert is True else (value * percentage) / total
 
+def run_async_in_thread(coroutine: Coroutine) -> Thread:
+    """Run a coroutine in a thread.
+    Args:
+        coroutine (Coroutine): coroutine to run"""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    thread = threading.Thread(target = loop.run_until_complete, args = (coroutine, ))
+    thread.daemon = True
+    thread.start()
+
+    return thread
+
 #------------------------------------------------------------------------------- CLASES ----------------------------------------------------------------------------------------
 
 class ThreadedGenerator():
@@ -164,9 +198,9 @@ class ThreadedGenerator():
     """
 
     def __init__(self, 
-        iterator: Iterator,
-        daemon=False,
-        Thread=Thread,
+        iterator: Iterable,
+        daemon = True,
+        Thread = Thread,
         sentinel: 'Any' = None,
         queue=Queue):
 
@@ -180,7 +214,7 @@ class ThreadedGenerator():
         self._thread.daemon = daemon
         self._cb = None
 
-    def insert_action(self, cb: 'function', args=()):
+    def insert_action(self, cb: 'Callable', args=()):
         """Add a callback to the intance.
 
         Args:
@@ -188,10 +222,10 @@ class ThreadedGenerator():
             args (tuple, optional): args. Defaults to ().
 
         """
-        self._cb = ( lambda value: cb(value, *args) ) if args == () else ( lambda value: cb(value) )
+        self._cb = lambda value: cb(value, *args)
 
     def __repr__(self):
-        return 'ThreadedGenerator({!r})'.format(self._iterator)
+        return f"ThreadedGenerator({self._iterator})"
 
     def _run(self):
         """Execute queue put process
@@ -200,10 +234,12 @@ class ThreadedGenerator():
             if self._cb is not None:
                 try:
                     value = self._cb(value)
-                except Exception as e:
-                    logging.warning(f"{inspect.currentframe().f_code.co_name} Error inside function: \n {e}")
+                except Exception as err:
+                    logging.warning(f"{inspect.currentframe().f_code.co_name} Error inside function: \n {err}")
 
             self._queue.put(value)
+            
+        self._queue.put(self._sentinel)
         self._queue.task_done()
 
     def __iter__(self):
@@ -213,7 +249,7 @@ class ThreadedGenerator():
             Any: value in the queue
         """
         self._thread.start()
-        end = 0
+        end = -1
 
         for value in iter(self._queue.get, self._sentinel):
             if value != self._sentinel:
@@ -224,5 +260,6 @@ class ThreadedGenerator():
 
             yield value
 
+        
         self._thread.join()
 

@@ -1,2 +1,4 @@
+https://developer.nvidia.com/cuda-downloads
 https://cmake.org/install/
 https://github.com/ageitgey/face_recognition
+pip install cmake
